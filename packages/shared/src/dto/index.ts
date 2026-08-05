@@ -11,6 +11,7 @@ import type {
   PoStatus,
   PrinterState,
   SpoolStatus,
+  SpoolType,
   UsageStatus,
 } from '../constants/index.js';
 
@@ -42,6 +43,10 @@ export interface Vendor {
 export interface FilamentProduct {
   id: string;
   material: Material;
+  manufacturer: string | null;
+  name: string | null;
+  category: string | null;
+  spoolType: SpoolType;
   colorName: string;
   colorHex: string | null;
   vendorId: string;
@@ -73,6 +78,10 @@ export interface Spool {
   productId: string;
   product: {
     material: Material;
+    manufacturer: string | null;
+    name: string | null;
+    category: string | null;
+    spoolType: SpoolType;
     colorName: string;
     colorHex: string | null;
     vendorId: string;

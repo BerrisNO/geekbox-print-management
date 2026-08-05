@@ -5,7 +5,9 @@ import type {
   SpoolInput,
   SpoolPatch,
   SpoolStatus,
+  SpoolType,
 } from '@geekbox/shared';
+import { SPOOL_TYPE_TARE_DEFAULTS_G } from '@geekbox/shared';
 import { count, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { printer } from '../../db/schema/integration.js';
@@ -68,6 +70,11 @@ export class SpoolService {
     if (!product) throw new NotFoundError('Product');
     const id = newId();
     const acquiredAt = input.acquiredAt ? new Date(input.acquiredAt).getTime() : nowMs();
+    // Default tare from the product's spool type when not explicitly provided
+    // (overridable). Net-weight math is unaffected — tare is weigh-in metadata.
+    const tareWeightG =
+      input.tareWeightG ??
+      SPOOL_TYPE_TARE_DEFAULTS_G[(product.spoolType ?? 'plastic') as SpoolType];
     this.db
       .insert(spool)
       .values({
@@ -76,7 +83,7 @@ export class SpoolService {
         productId: input.productId,
         initialNetWeightG: input.initialNetWeightG,
         remainingNetWeightG: 0, // set by the initial ledger entry
-        tareWeightG: input.tareWeightG ?? null,
+        tareWeightG,
         purchasePriceMinor: input.purchasePriceMinor ?? null,
         source: 'manual',
         goodsReceiptLineId: null,
@@ -225,6 +232,10 @@ export class SpoolService {
       productId: r.productId,
       product: {
         material: (product?.material ?? 'OTHER') as Material,
+        manufacturer: product?.manufacturer ?? null,
+        name: product?.name ?? null,
+        category: product?.category ?? null,
+        spoolType: (product?.spoolType ?? 'plastic') as SpoolType,
         colorName: product?.colorName ?? '',
         colorHex: product?.colorHex ?? null,
         vendorId: product?.vendorId ?? '',

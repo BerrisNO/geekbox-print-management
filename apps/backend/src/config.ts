@@ -68,6 +68,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     backupDir: e.BACKUP_DIR,
     logLevel: e.LOG_LEVEL,
     mqttRegionOverride: e.MQTT_REGION,
-    cookieSecure: e.COOKIE_SECURE !== undefined ? e.COOKIE_SECURE === 'true' : e.NODE_ENV === 'production',
+    cookieSecure:
+      e.COOKIE_SECURE !== undefined ? e.COOKIE_SECURE === 'true' : e.NODE_ENV === 'production',
   };
 }

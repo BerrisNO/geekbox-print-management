@@ -36,6 +36,7 @@ describe('ReceptionService', () => {
     const v = catalog.createVendor({ name: 'Acme' });
     const p = catalog.createProduct({
       material: 'PLA',
+      spoolType: 'plastic',
       colorName: 'Black',
       vendorId: v.id,
       diameterMm: 1.75,

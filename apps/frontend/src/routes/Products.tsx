@@ -1,4 +1,4 @@
-import { type FilamentProduct, MATERIALS } from '@geekbox/shared';
+import { type FilamentProduct, MATERIALS, type SpoolType } from '@geekbox/shared';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Archive, Package, Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -21,6 +21,13 @@ import { Sheet } from '../components/ui/sheet';
 import { ProductForm } from '../forms/ProductForm';
 import { formatGrams, formatMoney } from '../lib/format';
 
+const SPOOL_TYPE_LABELS: Record<SpoolType, string> = {
+  plastic: 'Plastic spool',
+  cardboard: 'Cardboard spool',
+  refill: 'Refill (no spool)',
+  reusable: 'Reusable/Masterspool',
+};
+
 export function ProductsPage() {
   const [material, setMaterial] = useState('');
   const products = useProducts({ material: material || undefined, includeArchived: true });
@@ -37,9 +44,19 @@ export function ProductsPage() {
         cell: (c) => <span className="font-medium">{c.getValue<string>()}</span>,
       },
       {
+        accessorKey: 'manufacturer',
+        header: 'Manufacturer',
+        cell: (c) => c.getValue<string | null>() ?? '—',
+      },
+      {
         accessorKey: 'colorName',
         header: 'Color',
         cell: (c) => <ColorSwatch hex={c.row.original.colorHex} name={c.getValue<string>()} />,
+      },
+      {
+        accessorKey: 'spoolType',
+        header: 'Spool type',
+        cell: (c) => SPOOL_TYPE_LABELS[c.getValue<SpoolType>()],
       },
       { accessorKey: 'vendorName', header: 'Vendor' },
       {

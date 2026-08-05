@@ -3,6 +3,7 @@ import {
   DENSITY_DEFAULTS_G_CM3,
   type Material,
   type ProductInput,
+  type SpoolType,
   type VendorInput,
 } from '@geekbox/shared';
 import { and, eq } from 'drizzle-orm';
@@ -103,6 +104,10 @@ export class CatalogService {
       .values({
         id,
         material: input.material,
+        manufacturer: input.manufacturer ?? null,
+        name: input.name ?? null,
+        category: input.category ?? null,
+        spoolType: input.spoolType ?? 'plastic',
         colorName: input.colorName,
         colorHex: input.colorHex ?? null,
         vendorId: input.vendorId,
@@ -126,6 +131,10 @@ export class CatalogService {
       .update(filamentProduct)
       .set({
         ...(input.material !== undefined ? { material: input.material } : {}),
+        ...(input.manufacturer !== undefined ? { manufacturer: input.manufacturer } : {}),
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.category !== undefined ? { category: input.category } : {}),
+        ...(input.spoolType !== undefined ? { spoolType: input.spoolType } : {}),
         ...(input.colorName !== undefined ? { colorName: input.colorName } : {}),
         ...(input.colorHex !== undefined ? { colorHex: input.colorHex } : {}),
         ...(input.vendorId !== undefined ? { vendorId: input.vendorId } : {}),
@@ -180,6 +189,10 @@ export class CatalogService {
     return {
       id: r.id,
       material: r.material as Material,
+      manufacturer: r.manufacturer,
+      name: r.name,
+      category: r.category,
+      spoolType: r.spoolType as SpoolType,
       colorName: r.colorName,
       colorHex: r.colorHex,
       vendorId: r.vendorId,

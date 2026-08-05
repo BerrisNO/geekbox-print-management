@@ -25,6 +25,10 @@ export const filamentProduct = sqliteTable(
   {
     id: text('id').primaryKey(),
     material: text('material').notNull(),
+    manufacturer: text('manufacturer'),
+    name: text('name'),
+    category: text('category'),
+    spoolType: text('spool_type').notNull().default('plastic'),
     colorName: text('color_name').notNull(),
     colorHex: text('color_hex'),
     vendorId: text('vendor_id')
@@ -48,6 +52,10 @@ export const filamentProduct = sqliteTable(
     check('filament_product_diameter_ck', sql`${t.diameterMm} IN (1.75, 2.85)`),
     check('filament_product_nom_weight_ck', sql`${t.nominalNetWeightG} > 0`),
     check('filament_product_default_price_ck', sql`${t.defaultPriceMinor} >= 0`),
+    check(
+      'filament_product_spool_type_ck',
+      sql`${t.spoolType} IN ('plastic','cardboard','refill','reusable')`,
+    ),
   ],
 );
 

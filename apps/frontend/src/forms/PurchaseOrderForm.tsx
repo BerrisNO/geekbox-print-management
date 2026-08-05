@@ -6,12 +6,14 @@ import { Button } from '../components/ui/button';
 import { Input, Textarea } from '../components/ui/input';
 import { Label } from '../components/ui/misc';
 import { Select } from '../components/ui/select';
+import { majorToMinor } from '../lib/format';
 import { FormField } from './FormField';
 
 interface LineDraft {
   productId: string;
   quantityOrdered: number;
-  unitPriceMinor: number;
+  /** MAJOR NOK in the form; converted to minor on submit. */
+  unitPrice: number | undefined;
 }
 
 /** PO creation form (FR-202) with dynamic line editor. */
@@ -34,10 +36,10 @@ export function PurchaseOrderForm({
       orderDate: new Date().toISOString().slice(0, 10),
       expectedArrival: '',
       externalRef: '',
-      shippingCostMinor: undefined as number | undefined,
+      shippingCost: undefined as number | undefined,
       notes: '',
       lines: [
-        { productId: products[0]?.id ?? '', quantityOrdered: 1, unitPriceMinor: 0 },
+        { productId: products[0]?.id ?? '', quantityOrdered: 1, unitPrice: undefined },
       ] as LineDraft[],
     },
     onSubmit: ({ value }) => {
@@ -46,9 +48,13 @@ export function PurchaseOrderForm({
         orderDate: value.orderDate,
         expectedArrival: value.expectedArrival || undefined,
         externalRef: value.externalRef || undefined,
-        shippingCostMinor: value.shippingCostMinor || undefined,
+        shippingCostMinor: majorToMinor(value.shippingCost),
         notes: value.notes || undefined,
-        lines: value.lines,
+        lines: value.lines.map((l) => ({
+          productId: l.productId,
+          quantityOrdered: l.quantityOrdered,
+          unitPriceMinor: majorToMinor(l.unitPrice) ?? 0,
+        })),
       };
       const parsed = purchaseOrderInputSchema.safeParse(clean);
       onSubmit(parsed.success ? parsed.data : clean);
@@ -128,13 +134,15 @@ export function PurchaseOrderForm({
             </FormField>
           )}
         </form.Field>
-        <form.Field name="shippingCostMinor">
+        <form.Field name="shippingCost">
           {(field) => (
-            <FormField field={field} label="Shipping cost (minor)">
+            <FormField field={field} label="Shipping (NOK)">
               {(control) => (
                 <Input
                   {...control}
                   type="number"
+                  step="0.01"
+                  min="0"
                   className="font-mono"
                   value={field.state.value ?? ''}
                   onChange={(e) =>
@@ -185,15 +193,19 @@ export function PurchaseOrderForm({
                       </div>
                     )}
                   </form.Field>
-                  <form.Field name={`lines[${i}].unitPriceMinor`}>
+                  <form.Field name={`lines[${i}].unitPrice`}>
                     {(sub) => (
                       <div className="w-28">
-                        <Label className="text-xs">Unit price</Label>
+                        <Label className="text-xs">Unit price (NOK)</Label>
                         <Input
                           type="number"
+                          step="0.01"
+                          min="0"
                           className="font-mono"
-                          value={sub.state.value}
-                          onChange={(e) => sub.handleChange(Number(e.target.value))}
+                          value={sub.state.value ?? ''}
+                          onChange={(e) =>
+                            sub.handleChange(e.target.value ? Number(e.target.value) : undefined)
+                          }
                         />
                       </div>
                     )}
@@ -218,7 +230,7 @@ export function PurchaseOrderForm({
                   field.pushValue({
                     productId: products[0]?.id ?? '',
                     quantityOrdered: 1,
-                    unitPriceMinor: 0,
+                    unitPrice: undefined,
                   })
                 }
               >

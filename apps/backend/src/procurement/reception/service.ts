@@ -1,4 +1,5 @@
-import type { GoodsReceipt, GoodsReceiptDetail, ReceptionInput } from '@geekbox/shared';
+import type { GoodsReceipt, GoodsReceiptDetail, ReceptionInput, SpoolType } from '@geekbox/shared';
+import { SPOOL_TYPE_TARE_DEFAULTS_G } from '@geekbox/shared';
 import { eq } from 'drizzle-orm';
 import type { EventBus } from '../../bus/event-bus.js';
 import type { Db } from '../../db/client.js';
@@ -134,7 +135,8 @@ export class ReceptionService {
               productId: product.id,
               initialNetWeightG: netWeight,
               remainingNetWeightG: 0,
-              tareWeightG: null,
+              tareWeightG:
+                SPOOL_TYPE_TARE_DEFAULTS_G[(product.spoolType ?? 'plastic') as SpoolType],
               purchasePriceMinor: unitPrice,
               source: 'goods_reception',
               goodsReceiptLineId: grlId,

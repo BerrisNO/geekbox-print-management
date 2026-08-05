@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { DIAMETERS_MM, JOB_OUTCOMES, MATERIALS, SPOOL_STATUSES } from '../constants/index.js';
+import {
+  DIAMETERS_MM,
+  JOB_OUTCOMES,
+  MATERIALS,
+  SPOOL_STATUSES,
+  SPOOL_TYPES,
+} from '../constants/index.js';
 
 /**
  * Zod v4 input schemas shared by the API boundary (Fastify) and frontend forms
@@ -51,6 +57,10 @@ export type VendorInput = z.infer<typeof vendorInputSchema>;
 // ---- products ----
 export const productInputSchema = z.object({
   material: materialSchema,
+  manufacturer: z.string().optional(),
+  name: z.string().optional(),
+  category: z.string().optional(),
+  spoolType: z.enum(SPOOL_TYPES).default('plastic'),
   colorName: z.string().min(1),
   colorHex: colorHex.optional(),
   vendorId: uuid,

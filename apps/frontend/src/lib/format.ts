@@ -25,6 +25,26 @@ export function formatMoney(
   }
 }
 
+/**
+ * Convert stored integer minor units to a MAJOR-unit value for a price input
+ * field (NOK, decimals allowed). Returns undefined for null/undefined so the
+ * input renders empty rather than 0.
+ */
+export function minorToMajorInput(minor: number | null | undefined): number | undefined {
+  return minor == null ? undefined : minor / 100;
+}
+
+/**
+ * Convert a typed MAJOR-unit price (NOK) to integer minor units for the API
+ * payload. Empty/non-finite input yields undefined (field omitted).
+ */
+export function majorToMinor(major: number | string | null | undefined): number | undefined {
+  if (major === null || major === undefined || major === '') return undefined;
+  const n = typeof major === 'string' ? Number(major) : major;
+  if (!Number.isFinite(n)) return undefined;
+  return Math.round(n * 100);
+}
+
 /** Format grams with fixed decimals. */
 export function formatGrams(g: number | null | undefined, decimals = 1): string {
   if (g === null || g === undefined) return '—';

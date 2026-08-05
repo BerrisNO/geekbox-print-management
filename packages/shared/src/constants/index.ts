@@ -32,6 +32,17 @@ export const DENSITY_DEFAULTS_G_CM3: Record<Material, number> = {
 export const SPOOL_STATUSES = ['in_stock', 'in_use', 'depleted', 'archived'] as const;
 export type SpoolStatus = (typeof SPOOL_STATUSES)[number];
 
+export const SPOOL_TYPES = ['plastic', 'cardboard', 'refill', 'reusable'] as const;
+export type SpoolType = (typeof SPOOL_TYPES)[number];
+
+/** Default empty-spool (tare) weight in grams per spool type; user-overridable per spool. */
+export const SPOOL_TYPE_TARE_DEFAULTS_G: Record<SpoolType, number> = {
+  plastic: 200,
+  cardboard: 55,
+  refill: 0,
+  reusable: 250,
+};
+
 export const PO_STATUSES = [
   'draft',
   'ordered',

@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Combobox } from '../components/ui/combobox';
 import { Input, Textarea } from '../components/ui/input';
 import { Label } from '../components/ui/misc';
+import { majorToMinor } from '../lib/format';
 import { FormField } from './FormField';
 
 /** Manual spool registration (FR-102). */
@@ -27,7 +28,7 @@ export function SpoolForm({
     defaultValues: {
       initialNetWeightG: 1000,
       tareWeightG: undefined as number | undefined,
-      purchasePriceMinor: undefined as number | undefined,
+      purchasePrice: undefined as number | undefined,
       acquiredAt: '',
       notes: '',
     },
@@ -40,7 +41,7 @@ export function SpoolForm({
         productId,
         initialNetWeightG: value.initialNetWeightG,
         tareWeightG: value.tareWeightG || undefined,
-        purchasePriceMinor: value.purchasePriceMinor || undefined,
+        purchasePriceMinor: majorToMinor(value.purchasePrice),
         acquiredAt: value.acquiredAt || undefined,
         notes: value.notes || undefined,
       };
@@ -110,13 +111,15 @@ export function SpoolForm({
             </FormField>
           )}
         </form.Field>
-        <form.Field name="purchasePriceMinor">
+        <form.Field name="purchasePrice">
           {(field) => (
-            <FormField field={field} label="Purchase price (minor)">
+            <FormField field={field} label="Purchase price (NOK)">
               {(control) => (
                 <Input
                   {...control}
                   type="number"
+                  step="0.01"
+                  min="0"
                   className="font-mono"
                   value={field.state.value ?? ''}
                   onChange={(e) =>

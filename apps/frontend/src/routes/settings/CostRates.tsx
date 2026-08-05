@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Input } from '../../components/ui/input';
 import { ErrorState, Label, Skeleton } from '../../components/ui/misc';
 import { FormField } from '../../forms/FormField';
+import { majorToMinor, minorToMajorInput } from '../../lib/format';
 import { useUiStore } from '../../stores/ui-store';
 
 export function CostRatesSettings() {
@@ -30,8 +31,9 @@ function CostRatesForm({
 }) {
   const form = useForm({
     defaultValues: {
-      energyPricePerKwhMinor: data.energyPricePerKwhMinor ?? undefined,
-      machineRatePerHourMinor: data.machineRatePerHourMinor ?? undefined,
+      // MAJOR NOK in the inputs; converted to minor on submit.
+      energyPricePerKwh: minorToMajorInput(data.energyPricePerKwhMinor) ?? undefined,
+      machineRatePerHour: minorToMajorInput(data.machineRatePerHourMinor) ?? undefined,
       currencyCode: data.currencyCode,
       printerPowerDraw: data.printerPowerDraw.map((p) => ({
         printerId: p.printerId,
@@ -41,8 +43,8 @@ function CostRatesForm({
     },
     onSubmit: ({ value }) => {
       const body = {
-        energyPricePerKwhMinor: value.energyPricePerKwhMinor ?? null,
-        machineRatePerHourMinor: value.machineRatePerHourMinor ?? null,
+        energyPricePerKwhMinor: majorToMinor(value.energyPricePerKwh) ?? null,
+        machineRatePerHourMinor: majorToMinor(value.machineRatePerHour) ?? null,
         currencyCode: value.currencyCode || undefined,
         printerPowerDraw: value.printerPowerDraw.map((p) => ({
           printerId: p.printerId,
@@ -75,17 +77,19 @@ function CostRatesForm({
           }}
         >
           <div className="grid grid-cols-2 gap-3">
-            <form.Field name="energyPricePerKwhMinor">
+            <form.Field name="energyPricePerKwh">
               {(field) => (
                 <FormField
                   field={field}
-                  label="Energy price / kWh (minor)"
+                  label="Energy price / kWh (NOK)"
                   hint="Leave blank to disable energy cost"
                 >
                   {({ id }) => (
                     <Input
                       id={id}
                       type="number"
+                      step="0.01"
+                      min="0"
                       className="font-mono"
                       value={field.state.value ?? ''}
                       onChange={(e) =>
@@ -96,17 +100,19 @@ function CostRatesForm({
                 </FormField>
               )}
             </form.Field>
-            <form.Field name="machineRatePerHourMinor">
+            <form.Field name="machineRatePerHour">
               {(field) => (
                 <FormField
                   field={field}
-                  label="Machine rate / hour (minor)"
+                  label="Machine rate / hour (NOK)"
                   hint="Leave blank to disable machine cost"
                 >
                   {({ id }) => (
                     <Input
                       id={id}
                       type="number"
+                      step="0.01"
+                      min="0"
                       className="font-mono"
                       value={field.state.value ?? ''}
                       onChange={(e) =>

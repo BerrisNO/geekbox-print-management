@@ -10,14 +10,15 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input, Textarea } from '../components/ui/input';
 import { Checkbox, ErrorState, Label, Skeleton } from '../components/ui/misc';
-import { formatMoney } from '../lib/format';
+import { formatMoney, majorToMinor } from '../lib/format';
 import { useUiStore } from '../stores/ui-store';
 
 interface LineState {
   poLineId: string;
   quantityReceived: number;
   quantityDamaged: number;
-  actualUnitPriceMinor: number | '';
+  /** MAJOR NOK in the input; converted to minor on submit. */
+  actualUnitPrice: number | '';
   confirmOverDelivery: boolean;
   discrepancyNote: string;
 }
@@ -47,7 +48,7 @@ export function ReceptionPage() {
         poLineId: l.id,
         quantityReceived: l.quantityOutstanding,
         quantityDamaged: 0,
-        actualUnitPriceMinor: '',
+        actualUnitPrice: '',
         confirmOverDelivery: false,
         discrepancyNote: '',
       };
@@ -88,7 +89,9 @@ export function ReceptionPage() {
           quantityReceived: s?.quantityReceived ?? 0,
           quantityDamaged: s?.quantityDamaged ?? 0,
           actualUnitPriceMinor:
-            s?.actualUnitPriceMinor === '' ? undefined : s?.actualUnitPriceMinor,
+            s?.actualUnitPrice === '' || s?.actualUnitPrice === undefined
+              ? undefined
+              : majorToMinor(s.actualUnitPrice),
           confirmOverDelivery: s?.confirmOverDelivery ?? false,
           discrepancyNote: s?.discrepancyNote || undefined,
         };
@@ -264,15 +267,17 @@ function LineEditor({
           />
         </div>
         <div>
-          <Label className="text-xs">Actual unit price</Label>
+          <Label className="text-xs">Actual unit price (NOK)</Label>
           <Input
             type="number"
+            step="0.01"
+            min="0"
             className="font-mono"
             placeholder="(PO price)"
-            value={state.actualUnitPriceMinor}
+            value={state.actualUnitPrice}
             onChange={(e) =>
               onChange({
-                actualUnitPriceMinor: e.target.value === '' ? '' : Number(e.target.value),
+                actualUnitPrice: e.target.value === '' ? '' : Number(e.target.value),
               })
             }
           />
