@@ -48,6 +48,13 @@ RUN if ! find /deploy -path '*better-sqlite3*/build/Release/*.node' | grep -q .;
     fi \
     && find /deploy -path '*better-sqlite3*/build/Release/*.node' | grep -q . \
     && test -f /deploy/node_modules/fastify/package.json
+# pnpm deploy symlinks workspace packages back into the source tree (/repo), which
+# does not exist in the runtime image, so the @geekbox/shared link dangles. Replace
+# it with a real copy of the built package so `node dist/main.js` can resolve it.
+RUN rm -rf /deploy/node_modules/@geekbox/shared \
+    && mkdir -p /deploy/node_modules/@geekbox/shared \
+    && cp -R packages/shared/package.json packages/shared/dist /deploy/node_modules/@geekbox/shared/ \
+    && test -f /deploy/node_modules/@geekbox/shared/dist/index.js
 
 # Stage 3 — runtime (prod deps only, non-root)
 FROM node:22-alpine AS runtime
