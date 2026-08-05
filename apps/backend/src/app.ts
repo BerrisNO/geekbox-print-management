@@ -37,24 +37,27 @@ export async function buildApp(c: Container, opts: BuildAppOptions = {}): Promis
 
   await app.register(fastifyCookie, { secret: c.config.sessionSecret });
   await app.register(fastifyHelmet, {
-    // Enable a strict, same-origin CSP (SEC-003/MR-002). The SPA is served from the
-    // same origin and uses no inline scripts or third-party resources; connect-src
-    // 'self' also covers the SSE endpoint. This hardens against XSS and, with the
-    // Origin check below, the CSRF surface.
+    // Strict, same-origin CSP (SEC-003/MR-002). The SPA is served same-origin. The
+    // only inline script is the pre-paint theme bootstrap in index.html, allowed via
+    // its sha256 hash (no 'unsafe-inline' for scripts). connect-src 'self' also
+    // covers the SSE endpoint. upgrade-insecure-requests is disabled so the app works
+    // over plain HTTP on a LAN/self-hosted origin (put a TLS reverse proxy in front
+    // for HTTPS); left enabled it would force asset fetches to https and break them.
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
         defaultSrc: ["'self'"],
-        // Vite injects a small runtime; styles are emitted as a linked stylesheet,
-        // but allow inline styles for the CSS-in-JS fallbacks the design system uses.
+        // Styles are emitted as a linked stylesheet; allow inline styles for the
+        // CSS-in-JS fallbacks the design system uses.
         styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", "'sha256-L58j4kcl61hKP1Q1dVbR8pxed3thkyhrpCWCwob+N1Y='"],
         imgSrc: ["'self'", 'data:'],
         connectSrc: ["'self'"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],
+        upgradeInsecureRequests: null,
       },
     },
   });
