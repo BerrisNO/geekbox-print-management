@@ -9,5 +9,5 @@ coverage/
 *.log
 .DS_Store
 sbom.json
-data/
+/data/
 .claude/
