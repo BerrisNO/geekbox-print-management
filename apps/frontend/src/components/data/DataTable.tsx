@@ -76,6 +76,7 @@ export function DataTable<T>({
   }
   if (isError) return <ErrorState onRetry={onRetry} />;
   if (!data || data.length === 0) {
+    // biome-ignore lint/complexity/noUselessFragments: coerces the ReactNode empty-state prop to a single JSX element for the return type
     return empty ? <>{empty}</> : null;
   }
 
@@ -84,10 +85,7 @@ export function DataTable<T>({
 
   return (
     <div className="overflow-hidden rounded-lg border border-border">
-      <div
-        ref={scrollRef}
-        className={cn('w-full overflow-auto', virtualize && 'max-h-[70vh]')}
-      >
+      <div ref={scrollRef} className={cn('w-full overflow-auto', virtualize && 'max-h-[70vh]')}>
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-[10] bg-[var(--color-surface-muted)]">
             {table.getHeaderGroups().map((hg) => (

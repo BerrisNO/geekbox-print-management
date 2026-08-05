@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import { cn } from '../../lib/cn';
 import {
   computeFreshness,
-  type FreshnessState,
   FRESH_MAX_SEC_DEFAULT,
+  type FreshnessState,
   relativeTime,
   STALE_MIN_SEC_DEFAULT,
   subscribeClock,
@@ -96,6 +96,7 @@ export function DataFreshness({
   const label = labelFor(state, ageSec);
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: span with role="status" is the design-spec contract asserted by the m5 freshness test
     <span
       role="status"
       data-freshness={state}

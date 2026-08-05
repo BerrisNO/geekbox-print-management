@@ -32,7 +32,9 @@ export function SpoolLedgerTable({
       {
         accessorKey: 'createdAt',
         header: 'When',
-        cell: (c) => <span className="whitespace-nowrap text-xs">{formatDateTime(c.getValue<string>())}</span>,
+        cell: (c) => (
+          <span className="whitespace-nowrap text-xs">{formatDateTime(c.getValue<string>())}</span>
+        ),
       },
       {
         accessorKey: 'type',
@@ -48,7 +50,9 @@ export function SpoolLedgerTable({
         cell: (c) => {
           const d = c.getValue<number>();
           return (
-            <span className={`font-mono ${d < 0 ? 'text-destructive' : 'text-[var(--color-status-fresh)]'}`}>
+            <span
+              className={`font-mono ${d < 0 ? 'text-destructive' : 'text-[var(--color-status-fresh)]'}`}
+            >
               {d > 0 ? '+' : ''}
               {d.toFixed(1)}
             </span>
@@ -75,7 +79,11 @@ export function SpoolLedgerTable({
           </div>
         ),
       },
-      { accessorKey: 'note', header: 'Note', cell: (c) => <span className="text-xs">{orDash(c.getValue<string | null>())}</span> },
+      {
+        accessorKey: 'note',
+        header: 'Note',
+        cell: (c) => <span className="text-xs">{orDash(c.getValue<string | null>())}</span>,
+      },
     ],
     [],
   );

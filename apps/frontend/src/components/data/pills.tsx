@@ -40,7 +40,10 @@ export function ColorSwatch({
   );
 }
 
-const SPOOL_STATUS: Record<SpoolStatus, { variant: BadgeProps['variant']; icon: typeof Box; label: string }> = {
+const SPOOL_STATUS: Record<
+  SpoolStatus,
+  { variant: BadgeProps['variant']; icon: typeof Box; label: string }
+> = {
   in_stock: { variant: 'info', icon: Box, label: 'In stock' },
   in_use: { variant: 'primary', icon: Play, label: 'In use' },
   depleted: { variant: 'neutral', icon: CircleDashed, label: 'Depleted' },
@@ -49,10 +52,17 @@ const SPOOL_STATUS: Record<SpoolStatus, { variant: BadgeProps['variant']; icon: 
 
 export function SpoolStatusPill({ status }: { status: SpoolStatus }) {
   const s = SPOOL_STATUS[status];
-  return <Badge variant={s.variant} icon={s.icon}>{s.label}</Badge>;
+  return (
+    <Badge variant={s.variant} icon={s.icon}>
+      {s.label}
+    </Badge>
+  );
 }
 
-const PO_STATUS: Record<PoStatus, { variant: BadgeProps['variant']; icon: typeof Box; label: string }> = {
+const PO_STATUS: Record<
+  PoStatus,
+  { variant: BadgeProps['variant']; icon: typeof Box; label: string }
+> = {
   draft: { variant: 'neutral', icon: Pencil, label: 'Draft' },
   ordered: { variant: 'info', icon: Truck, label: 'Ordered' },
   partially_received: { variant: 'warning', icon: PackageCheck, label: 'Partial' },
@@ -62,10 +72,17 @@ const PO_STATUS: Record<PoStatus, { variant: BadgeProps['variant']; icon: typeof
 
 export function PoStatusPill({ status }: { status: PoStatus }) {
   const s = PO_STATUS[status];
-  return <Badge variant={s.variant} icon={s.icon}>{s.label}</Badge>;
+  return (
+    <Badge variant={s.variant} icon={s.icon}>
+      {s.label}
+    </Badge>
+  );
 }
 
-const OUTCOME: Record<JobOutcome, { variant: BadgeProps['variant']; icon: typeof Box; label: string }> = {
+const OUTCOME: Record<
+  JobOutcome,
+  { variant: BadgeProps['variant']; icon: typeof Box; label: string }
+> = {
   success: { variant: 'success', icon: CheckCircle2, label: 'Success' },
   failed: { variant: 'danger', icon: XCircle, label: 'Failed' },
   cancelled: { variant: 'neutral', icon: Ban, label: 'Cancelled' },
@@ -74,7 +91,11 @@ const OUTCOME: Record<JobOutcome, { variant: BadgeProps['variant']; icon: typeof
 
 export function JobOutcomePill({ outcome }: { outcome: JobOutcome }) {
   const s = OUTCOME[outcome];
-  return <Badge variant={s.variant} icon={s.icon}>{s.label}</Badge>;
+  return (
+    <Badge variant={s.variant} icon={s.icon}>
+      {s.label}
+    </Badge>
+  );
 }
 
 const PRINTER_STATE: Record<
@@ -91,5 +112,9 @@ const PRINTER_STATE: Record<
 
 export function PrinterStatePill({ state }: { state: PrinterState }) {
   const s = PRINTER_STATE[state];
-  return <Badge variant={s.variant} icon={s.icon}>{s.label}</Badge>;
+  return (
+    <Badge variant={s.variant} icon={s.icon}>
+      {s.label}
+    </Badge>
+  );
 }
