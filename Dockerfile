@@ -14,6 +14,10 @@ COPY apps/frontend ./apps/frontend
 # postinstall is not required — tolerate the non-fatal gate; the SPA build below
 # fails loudly if a binary is genuinely missing, which validates the install.
 RUN pnpm install --frozen-lockfile --filter @geekbox/frontend... --filter @geekbox/shared || true
+# Build the shared workspace package to dist first; the production build resolves
+# @geekbox/shared to its compiled JS (the "development" export condition keeps
+# dev/test/bundlers on source).
+RUN pnpm --filter @geekbox/shared build
 RUN pnpm --filter @geekbox/frontend build
 
 # Stage 2 — build the backend (compile TS → dist) then a prod-only deploy tree
@@ -32,6 +36,9 @@ RUN pnpm install --frozen-lockfile --filter @geekbox/backend... --filter @geekbo
 RUN cd "$(find . -type d -path '*.pnpm/better-sqlite3@*/node_modules/better-sqlite3' | head -1)" \
     && npm run build-release \
     && find . -path '*build/Release/*.node' | grep -q .
+# Compile the shared workspace package to dist so the backend's runtime bare import
+# of @geekbox/shared resolves to JS (pnpm deploy then bundles dist into /deploy).
+RUN pnpm --filter @geekbox/shared build
 RUN pnpm --filter @geekbox/backend build
 # Prune to a prod-only node_modules. Keep the compiled better-sqlite3 native binding;
 # if pnpm deploy reconstructs node_modules without it, compile it in place, then assert.

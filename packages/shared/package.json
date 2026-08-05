@@ -3,12 +3,28 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./schemas": "./src/schemas/index.ts",
-    "./constants": "./src/constants/index.ts"
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schemas": {
+      "development": "./src/schemas/index.ts",
+      "types": "./dist/schemas/index.d.ts",
+      "default": "./dist/schemas/index.js"
+    },
+    "./constants": {
+      "development": "./src/constants/index.ts",
+      "types": "./dist/constants/index.d.ts",
+      "default": "./dist/constants/index.js"
+    }
   },
+  "files": ["dist"],
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
