@@ -61,6 +61,10 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 RUN addgroup -S app && adduser -S app -G app
 ENV NODE_ENV=production
+# Create the data dir (SQLite DB + backups) owned by the non-root runtime user so a
+# freshly-created named volume mounted at /data inherits writable ownership.
+RUN mkdir -p /data/backups && chown -R app:app /data
+VOLUME /data
 COPY --from=be-build /repo/apps/backend/dist ./dist
 COPY --from=be-build /repo/apps/backend/migrations ./migrations
 COPY --from=be-build /deploy/node_modules ./node_modules
