@@ -27,6 +27,10 @@ const envSchema = z.object({
   BACKUP_DIR: z.string().default('/data/backups'),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   MQTT_REGION: z.string().optional(),
+  // Set the session cookie's Secure flag. Defaults to true in production. Browsers
+  // drop Secure cookies over plain HTTP, so set COOKIE_SECURE=false when serving the
+  // app over HTTP on a trusted LAN (put a TLS reverse proxy in front for HTTPS).
+  COOKIE_SECURE: z.enum(['true', 'false']).optional(),
 });
 
 export type AppConfig = {
@@ -38,6 +42,7 @@ export type AppConfig = {
   backupDir: string;
   logLevel: 'error' | 'warn' | 'info' | 'debug';
   mqttRegionOverride: string | undefined;
+  cookieSecure: boolean;
 };
 
 function decodeKey(v: string): Buffer {
@@ -63,5 +68,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     backupDir: e.BACKUP_DIR,
     logLevel: e.LOG_LEVEL,
     mqttRegionOverride: e.MQTT_REGION,
+    cookieSecure: e.COOKIE_SECURE !== undefined ? e.COOKIE_SECURE === 'true' : e.NODE_ENV === 'production',
   };
 }

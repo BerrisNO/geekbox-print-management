@@ -7,7 +7,7 @@ export function registerAuthRoutes(app: FastifyInstance, c: Container): void {
   const cookieOpts = (expiresMs: number) => ({
     httpOnly: true,
     sameSite: 'lax' as const,
-    secure: c.config.nodeEnv === 'production',
+    secure: c.config.cookieSecure,
     path: '/',
     expires: new Date(expiresMs),
   });
