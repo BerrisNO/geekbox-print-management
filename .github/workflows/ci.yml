@@ -42,6 +42,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r test
       - run: pnpm --filter @geekbox/frontend test:freshness
+      # Build the shared package then the SPA so the bundle-budget gate has a
+      # dist manifest to measure (vite build resolves @geekbox/shared from dist).
+      - run: pnpm --filter @geekbox/shared build
+      - run: pnpm --filter @geekbox/frontend build
       - run: pnpm --filter @geekbox/frontend test:bundle-budget
 
   dep-check:
