@@ -3,6 +3,7 @@ import { useForm } from '@tanstack/react-form';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Archive, Building2, Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { ApiError } from '../api/client';
 import { useArchiveVendor, useCreateVendor, useUpdateVendor, useVendors } from '../api/hooks';
 import { DataTable } from '../components/data/DataTable';
 import { PageHeader } from '../components/shell/PageHeader';
@@ -12,7 +13,7 @@ import { ConfirmDialog } from '../components/ui/dialog';
 import { Input, Textarea } from '../components/ui/input';
 import { EmptyState } from '../components/ui/misc';
 import { Sheet } from '../components/ui/sheet';
-import { FormField } from '../forms/FormField';
+import { applyFieldErrors, FormField } from '../forms/FormField';
 import { orDash } from '../lib/format';
 
 export function VendorsPage() {
@@ -120,6 +121,7 @@ function VendorSheet({ vendor, onClose }: { vendor: Vendor | null; onClose: () =
   const create = useCreateVendor();
   const update = useUpdateVendor(vendor?.id ?? '');
   const mutation = vendor ? update : create;
+  const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
@@ -128,14 +130,31 @@ function VendorSheet({ vendor, onClose }: { vendor: Vendor | null; onClose: () =
       leadTimeDays: vendor?.leadTimeDays ?? undefined,
       notes: vendor?.notes ?? '',
     },
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
+      setFormError(null);
       const clean = {
         name: value.name,
         url: value.url || undefined,
         leadTimeDays: value.leadTimeDays ?? undefined,
         notes: value.notes || undefined,
       };
-      mutation.mutate(clean, { onSuccess: onClose });
+      try {
+        await mutation.mutateAsync(clean);
+        onClose();
+      } catch (err) {
+        // Surface validation failures instead of failing silently: map RFC 7807
+        // field errors onto the form, or show a general message.
+        if (err instanceof ApiError && Object.keys(err.fieldErrors).length > 0) {
+          applyFieldErrors(
+            form as unknown as Parameters<typeof applyFieldErrors>[0],
+            err.fieldErrors,
+          );
+        } else {
+          setFormError(
+            err instanceof ApiError ? err.message : 'Could not save vendor. Please try again.',
+          );
+        }
+      }
     },
   });
 
@@ -206,6 +225,11 @@ function VendorSheet({ vendor, onClose }: { vendor: Vendor | null; onClose: () =
             </FormField>
           )}
         </form.Field>
+        {formError ? (
+          <p className="text-sm text-destructive" role="alert">
+            {formError}
+          </p>
+        ) : null}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel

@@ -31,9 +31,18 @@ export const changePasswordSchema = z.object({
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 // ---- vendors ----
+// URL accepts a bare domain (e.g. "prusa.com") and normalizes it to a full URL by
+// prepending https:// — users don't type the scheme. Empty/whitespace → omitted.
+const vendorUrl = z.preprocess((v) => {
+  if (typeof v !== 'string') return v;
+  const t = v.trim();
+  if (!t) return undefined;
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(t) ? t : `https://${t}`;
+}, z.string().url().optional());
+
 export const vendorInputSchema = z.object({
   name: z.string().min(1),
-  url: z.string().url().optional(),
+  url: vendorUrl,
   leadTimeDays: z.number().int().min(0).optional(),
   notes: z.string().optional(),
 });
