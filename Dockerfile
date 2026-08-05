@@ -5,7 +5,7 @@
 FROM node:22-alpine AS fe-build
 WORKDIR /repo
 RUN corepack enable
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/frontend ./apps/frontend
 # pnpm 11 gates dependency build scripts (ERR_PNPM_IGNORED_BUILDS) even when they
@@ -21,7 +21,7 @@ FROM node:22-alpine AS be-build
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
 RUN corepack enable
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/backend ./apps/backend
 # pnpm 11 gates dependency build scripts; tolerate the non-fatal gate, then compile
