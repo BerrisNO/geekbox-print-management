@@ -40,7 +40,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm -r test -- --coverage
+      - run: pnpm -r test
       - run: pnpm --filter @geekbox/frontend test:freshness
       - run: pnpm --filter @geekbox/frontend test:bundle-budget
 
