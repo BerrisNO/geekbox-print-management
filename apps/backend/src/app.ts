@@ -1,7 +1,7 @@
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import type { Container } from './container.js';
 import { registerErrorHandler } from './http/error-handler.js';
 import { registerSessionGate } from './http/session-gate.js';
@@ -27,7 +27,13 @@ export type BuildAppOptions = {
  * network listeners or the telemetry supervisor — that is main.ts's job.
  */
 export async function buildApp(c: Container, opts: BuildAppOptions = {}): Promise<FastifyInstance> {
-  const app = Fastify({ loggerInstance: c.log, disableRequestLogging: c.config.nodeEnv === 'test' });
+  // Pass the pre-built pino instance via loggerInstance (Fastify v5). Cast to
+  // FastifyBaseLogger so the instance keeps the default logger type — otherwise
+  // Fastify infers the pino Logger type and route registrations/return type mismatch.
+  const app = Fastify({
+    loggerInstance: c.log as FastifyBaseLogger,
+    disableRequestLogging: c.config.nodeEnv === 'test',
+  });
 
   await app.register(fastifyCookie, { secret: c.config.sessionSecret });
   await app.register(fastifyHelmet, {
