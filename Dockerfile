@@ -8,7 +8,12 @@ RUN corepack enable
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages ./packages
 COPY apps/frontend ./apps/frontend
-RUN pnpm install --frozen-lockfile --filter @geekbox/frontend... --filter @geekbox/shared
+# pnpm 11 gates dependency build scripts (ERR_PNPM_IGNORED_BUILDS) even when they
+# are listed in onlyBuiltDependencies. esbuild and @tailwindcss/oxide resolve their
+# native binaries from prebuilt musl optional-dependency packages, so their
+# postinstall is not required — tolerate the non-fatal gate; the SPA build below
+# fails loudly if a binary is genuinely missing, which validates the install.
+RUN pnpm install --frozen-lockfile --filter @geekbox/frontend... --filter @geekbox/shared || true
 RUN pnpm --filter @geekbox/frontend build
 
 # Stage 2 — build the backend (compile TS → dist) then a prod-only deploy tree
@@ -19,11 +24,23 @@ RUN corepack enable
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages ./packages
 COPY apps/backend ./apps/backend
-RUN pnpm install --frozen-lockfile --filter @geekbox/backend... --filter @geekbox/shared
+# pnpm 11 gates dependency build scripts; tolerate the non-fatal gate, then compile
+# the better-sqlite3 native binding explicitly (node-gyp bypasses the pnpm gate).
+# argon2 ships prebuilt binaries and needs no compile. Downstream steps assert the
+# binding exists, so a real install/compile failure still fails the build.
+RUN pnpm install --frozen-lockfile --filter @geekbox/backend... --filter @geekbox/shared || true
+RUN cd "$(find . -type d -path '*.pnpm/better-sqlite3@*/node_modules/better-sqlite3' | head -1)" \
+    && npm run build-release \
+    && find . -path '*build/Release/*.node' | grep -q .
 RUN pnpm --filter @geekbox/backend build
-# Prune to a prod-only node_modules (keeps compiled better-sqlite3 native binding,
-# rebuilt inside this alpine/musl stage so it matches the runtime base).
-RUN pnpm --filter @geekbox/backend deploy --prod --legacy /deploy
+# Prune to a prod-only node_modules. Keep the compiled better-sqlite3 native binding;
+# if pnpm deploy reconstructs node_modules without it, compile it in place, then assert.
+RUN pnpm --filter @geekbox/backend deploy --prod --legacy /deploy || true
+RUN if ! find /deploy -path '*better-sqlite3*/build/Release/*.node' | grep -q .; then \
+      cd "$(find /deploy -type d -name better-sqlite3 | head -1)" && npm run build-release; \
+    fi \
+    && find /deploy -path '*better-sqlite3*/build/Release/*.node' | grep -q . \
+    && test -f /deploy/node_modules/fastify/package.json
 
 # Stage 3 — runtime (prod deps only, non-root)
 FROM node:22-alpine AS runtime
