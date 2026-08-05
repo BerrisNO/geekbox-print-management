@@ -1,0 +1,19 @@
+{
+  "_comment": "MS-1 fixture — GET /v1/iot-service/api/user/bind device list (UNVERIFIED community contract).",
+  "devices": [
+    {
+      "dev_id": "01P00A000000001",
+      "name": "X1 Carbon",
+      "dev_product_name": "Bambu Lab X1 Carbon",
+      "dev_model_name": "BL-P001",
+      "online": true
+    },
+    {
+      "dev_id": "03W00A000000002",
+      "name": "A1 mini",
+      "dev_product_name": "Bambu Lab A1 mini",
+      "dev_model_name": "N2S",
+      "online": false
+    }
+  ]
+}

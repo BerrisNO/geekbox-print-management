@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Native/binary deps allowed to run their install/build scripts (pnpm 11). These
+# ship prebuilt binaries for the Node 22 ABI (the locked runtime), so on Node 22
+# no local C/C++ toolchain is required. See README "Prerequisites".
+onlyBuiltDependencies:
+  - argon2
+  - better-sqlite3
+  - esbuild
+  - "@tailwindcss/oxide"
+
+verifyDepsBeforeRun: false

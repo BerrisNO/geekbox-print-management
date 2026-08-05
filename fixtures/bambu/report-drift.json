@@ -1,0 +1,5 @@
+{
+  "_comment": "MS-1 fixture — a drifted/unexpected payload shape (new fields, missing print block) to prove the normalizer degrades gracefully rather than throwing (NFR-MA-03).",
+  "system": { "sequence_id": "9999", "command": "push_status" },
+  "unexpected_new_field": { "foo": "bar" }
+}

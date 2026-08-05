@@ -1,0 +1,22 @@
+{
+  "name": "@geekbox/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas/index.ts",
+    "./constants": "./src/constants/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "4.0.5"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2",
+    "vitest": "3.2.6"
+  }
+}

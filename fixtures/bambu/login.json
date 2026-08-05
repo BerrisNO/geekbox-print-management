@@ -1,0 +1,7 @@
+{
+  "_comment": "MS-1 recorded fixture — POST /v1/user-service/user/login success (UNVERIFIED community contract). Redacted token.",
+  "accessToken": "REDACTED_ACCESS_TOKEN_eyJhbGciOi",
+  "refreshToken": "REDACTED_REFRESH_TOKEN_eyJhbGci",
+  "uid": "1234567",
+  "loginType": "cloud"
+}

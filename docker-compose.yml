@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    image: geekbox-app:${TAG:-local}
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file: .env
+    volumes:
+      - gbx-data:/data
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  gbx-data: {}

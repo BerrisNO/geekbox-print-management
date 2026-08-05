@@ -1,0 +1,8 @@
+{
+  "_comment": "MS-1 fixture — MQTT report when idle; several fields absent (drift-tolerance target).",
+  "print": {
+    "gcode_state": "IDLE",
+    "nozzle_temper": 24.1,
+    "bed_temper": 23.8
+  }
+}

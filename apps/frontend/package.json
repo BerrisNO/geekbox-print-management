@@ -1,0 +1,49 @@
+{
+  "name": "@geekbox/frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:freshness": "vitest run src/tests/freshness.test.tsx",
+    "test:bundle-budget": "node scripts/bundle-budget.mjs"
+  },
+  "dependencies": {
+    "@geekbox/shared": "workspace:*",
+    "@tanstack/react-form": "1.19.3",
+    "@tanstack/react-query": "5.90.2",
+    "@tanstack/react-router": "1.132.41",
+    "@tanstack/react-table": "8.21.3",
+    "@tanstack/react-virtual": "3.13.12",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "0.544.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "tailwind-merge": "3.3.1",
+    "zod": "4.0.5",
+    "zustand": "5.0.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.1.13",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "22.15.3",
+    "@types/react": "19.1.13",
+    "@types/react-dom": "19.1.9",
+    "@vitejs/plugin-react": "5.0.4",
+    "jsdom": "26.1.0",
+    "rollup-plugin-visualizer": "6.0.4",
+    "tailwindcss": "4.1.13",
+    "typescript": "5.9.2",
+    "vite": "6.4.3",
+    "vitest": "3.2.6"
+  }
+}

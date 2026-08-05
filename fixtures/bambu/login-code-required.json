@@ -1,0 +1,5 @@
+{
+  "_comment": "MS-1 fixture — login response that requires an email verification code (Q-06 provision). No token issued.",
+  "loginType": "verifyCode",
+  "tfaKey": "REDACTED_TFA_KEY"
+}

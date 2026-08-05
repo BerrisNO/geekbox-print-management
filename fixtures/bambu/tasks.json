@@ -1,0 +1,26 @@
+{
+  "_comment": "MS-1 fixture — GET /v1/user-service/my/tasks history (UNVERIFIED community contract).",
+  "total": 2,
+  "hits": [
+    {
+      "id": 900000001,
+      "designTitle": "Benchy",
+      "title": "3DBenchy.gcode",
+      "deviceId": "01P00A000000001",
+      "startTime": "2026-08-01T10:00:00Z",
+      "endTime": "2026-08-01T11:02:00Z",
+      "costTime": 3720,
+      "status": 4
+    },
+    {
+      "id": 900000002,
+      "designTitle": "Bracket",
+      "title": "bracket_v3.gcode",
+      "deviceId": "01P00A000000001",
+      "startTime": "2026-08-02T14:30:00Z",
+      "endTime": "2026-08-02T15:10:00Z",
+      "costTime": 2400,
+      "status": 3
+    }
+  ]
+}
