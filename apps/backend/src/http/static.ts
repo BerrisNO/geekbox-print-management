@@ -3,27 +3,16 @@ import fastifyStatic from '@fastify/static';
 import type { FastifyInstance } from 'fastify';
 
 /**
- * Serves the built frontend SPA (@fastify/static) with SPA fallback to
- * index.html for any non-API, non-asset route (ADR-014, architecture §5.1).
+ * Registers the built frontend SPA assets (@fastify/static). Returns whether the
+ * assets were served (dir exists). The SPA fallback to index.html is handled by the
+ * single not-found handler in app.ts (ADR-014, architecture §5.1), since Fastify
+ * permits only one not-found handler per prefix.
  */
-export async function registerStatic(app: FastifyInstance, publicDir: string): Promise<void> {
+export async function registerStatic(app: FastifyInstance, publicDir: string): Promise<boolean> {
   if (!existsSync(publicDir)) {
     app.log.warn(`Static assets directory not found at ${publicDir}; SPA will not be served`);
-    return;
+    return false;
   }
   await app.register(fastifyStatic, { root: publicDir, prefix: '/', wildcard: false });
-
-  // SPA fallback: any GET that is not an /api path and not a real file → index.html.
-  app.setNotFoundHandler((req, reply) => {
-    if (req.method === 'GET' && !req.url.startsWith('/api/')) {
-      return reply.sendFile('index.html');
-    }
-    return reply.status(404).type('application/problem+json').send({
-      type: 'about:blank',
-      title: 'Not found',
-      status: 404,
-      code: 'NOT_FOUND',
-      instance: req.url,
-    });
-  });
+  return true;
 }

@@ -3,7 +3,7 @@ import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import type { Container } from './container.js';
-import { registerErrorHandler } from './http/error-handler.js';
+import { registerErrorHandler, sendProblem } from './http/error-handler.js';
 import { registerSessionGate } from './http/session-gate.js';
 import { SseBroadcaster } from './http/sse.js';
 import { registerStatic } from './http/static.js';
@@ -111,10 +111,20 @@ export async function buildApp(c: Container, opts: BuildAppOptions = {}): Promis
   const sse = new SseBroadcaster(c.bus);
   sse.register(app);
 
-  // Static SPA (registers its own notFound handler; must come last).
+  // Static SPA + the single not-found handler (must come last). Fastify allows only
+  // one not-found handler per prefix, so it lives here rather than in the error
+  // handler: SPA fallback for browser GETs when static assets are served, RFC 7807
+  // problem+json otherwise (API 404s and API-only/test mode).
+  let staticServed = false;
   if (opts.serveStatic !== false && opts.publicDir) {
-    await registerStatic(app, opts.publicDir);
+    staticServed = await registerStatic(app, opts.publicDir);
   }
+  app.setNotFoundHandler((req, reply) => {
+    if (staticServed && req.method === 'GET' && !req.url.startsWith('/api/')) {
+      return reply.sendFile('index.html');
+    }
+    return sendProblem(reply, req, { status: 404, title: 'Not found', code: 'NOT_FOUND' });
+  });
 
   return app;
 }

@@ -50,11 +50,8 @@ export function registerErrorHandler(app: FastifyInstance): void {
       code: 'INTERNAL_ERROR',
     });
   });
-
-  app.setNotFoundHandler((req, reply) => {
-    // API 404s are problem+json; non-API paths fall through to the SPA (handled in static.ts).
-    return sendProblem(reply, req, { status: 404, title: 'Not found', code: 'NOT_FOUND' });
-  });
+  // The not-found handler is registered once in app.ts (Fastify allows only one per
+  // prefix); it serves the SPA fallback or an RFC 7807 problem as appropriate.
 }
 
 type ProblemInput = {
