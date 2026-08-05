@@ -27,7 +27,7 @@ export type BuildAppOptions = {
  * network listeners or the telemetry supervisor — that is main.ts's job.
  */
 export async function buildApp(c: Container, opts: BuildAppOptions = {}): Promise<FastifyInstance> {
-  const app = Fastify({ logger: c.log, disableRequestLogging: c.config.nodeEnv === 'test' });
+  const app = Fastify({ loggerInstance: c.log, disableRequestLogging: c.config.nodeEnv === 'test' });
 
   await app.register(fastifyCookie, { secret: c.config.sessionSecret });
   await app.register(fastifyHelmet, {
