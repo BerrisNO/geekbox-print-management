@@ -68,7 +68,9 @@ export type ManufacturerInput = z.infer<typeof manufacturerInputSchema>;
 // ---- products ----
 export const productInputSchema = z.object({
   material: materialSchema,
-  manufacturerId: z.string().uuid().optional(),
+  // A reference id, not necessarily UUID-formatted: manufacturer records created by
+  // the 0002 data-migration use hex ids, so accept any non-empty id string.
+  manufacturerId: z.string().min(1).optional(),
   name: z.string().optional(),
   category: z.string().optional(),
   spoolType: z.enum(SPOOL_TYPES).default('plastic'),
