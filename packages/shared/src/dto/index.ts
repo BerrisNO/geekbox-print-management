@@ -13,6 +13,7 @@ import type {
   SpoolStatus,
   SpoolType,
   UsageStatus,
+  WorkOrderStatus,
 } from '../constants/index.js';
 
 export interface ProblemDetails {
@@ -234,6 +235,59 @@ export interface PurchaseOrderDetail extends PurchaseOrder {
   receipts: GoodsReceipt[];
 }
 
+// ---- work orders (Stage 2) ----
+/** A print job linked to a work-order line (fulfillment rollup). */
+export interface WorkOrderLinkedJob {
+  id: string;
+  jobName: string;
+  outcome: JobOutcome;
+  /** Job's total cost in minor units, or null when not yet costed/incomplete. */
+  costMinor: number | null;
+}
+
+export interface WorkOrderLine {
+  id: string;
+  partId: string;
+  partArticleNo: string;
+  partName: string;
+  quantity: number;
+  /** Snapshot unit sell price (minor units) taken at write time. */
+  unitPriceMinor: number;
+  /** Snapshot unit cost (minor units) taken at write time. */
+  unitCostMinor: number;
+  /** quantity × unitPriceMinor. */
+  lineSellMinor: number;
+  /** quantity × unitCostMinor. */
+  lineCostMinor: number;
+  /** lineSellMinor − lineCostMinor. */
+  lineMarginMinor: number;
+  notes: string | null;
+  /** Count of linked print jobs (fulfillment). */
+  producedQty: number;
+  /** Sum of linked jobs' costs (minor units); nulls skipped. */
+  actualCostMinor: number;
+  /** True when any linked job cost is missing or incomplete. */
+  actualIncomplete: boolean;
+  linkedJobs: WorkOrderLinkedJob[];
+}
+
+export interface WorkOrder {
+  id: string;
+  orderRef: string | null;
+  customerId: string;
+  customerName: string;
+  orderDate: string | null;
+  status: WorkOrderStatus;
+  notes: string | null;
+  archived: boolean;
+  lineCount: number;
+  totals: { sellMinor: number; costMinor: number; marginMinor: number; marginPct: number };
+}
+
+export interface WorkOrderDetail extends WorkOrder {
+  lines: WorkOrderLine[];
+}
+
 export interface InboundRow {
   purchaseOrderId: string;
   vendorId: string;
@@ -451,6 +505,8 @@ export interface PrintJob {
   usageStatus: UsageStatus;
   totalUsedG: number;
   cost: { totalCostMinor: number; incomplete: boolean } | null;
+  /** The work-order line this job fulfills, or null when unassigned. */
+  workOrderLineId: string | null;
   createdAt: string;
   updatedAt: string;
 }

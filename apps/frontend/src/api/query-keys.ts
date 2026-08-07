@@ -59,6 +59,11 @@ export const queryKeys = {
     detail: (id: string) => ['purchase-order', id] as const,
     receptions: (id: string) => ['purchase-order', id, 'receptions'] as const,
   },
+  workOrders: {
+    all: (includeArchived?: boolean) =>
+      ['work-orders', { includeArchived: !!includeArchived }] as const,
+    detail: (id: string) => ['work-order', id] as const,
+  },
   inbound: {
     overview: () => ['inbound'] as const,
   },

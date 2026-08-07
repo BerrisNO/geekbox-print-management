@@ -26,6 +26,8 @@ import type {
   SyncResult,
   TelemetrySnapshot,
   Vendor,
+  WorkOrder,
+  WorkOrderDetail,
 } from '@geekbox/shared';
 import { type UseQueryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
@@ -385,6 +387,74 @@ export function useInboundOverview() {
   return useQuery({
     queryKey: queryKeys.inbound.overview(),
     queryFn: () => api.get<InboundRow[]>('/inbound'),
+  });
+}
+
+/* ---------------------------- work orders ----------------------------- */
+export function useWorkOrders(includeArchived = false) {
+  return useQuery({
+    queryKey: queryKeys.workOrders.all(includeArchived),
+    queryFn: () => api.get<WorkOrder[]>('/work-orders', { query: { includeArchived } }),
+  });
+}
+
+export function useWorkOrder(id: string) {
+  return useQuery({
+    queryKey: queryKeys.workOrders.detail(id),
+    queryFn: () => api.get<WorkOrderDetail>(`/work-orders/${id}`),
+  });
+}
+
+export function useCreateWorkOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => api.post<WorkOrderDetail>('/work-orders', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['work-orders'] }),
+  });
+}
+
+export function useUpdateWorkOrder(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => api.patch<WorkOrderDetail>(`/work-orders/${id}`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['work-orders'] });
+      qc.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });
+    },
+  });
+}
+
+export function useArchiveWorkOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<WorkOrder>(`/work-orders/${id}/archive`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['work-orders'] }),
+  });
+}
+
+export function useLinkJobToLine(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ lineId, jobId }: { lineId: string; jobId: string }) =>
+      api.post<WorkOrderDetail>(`/work-orders/${id}/lines/${lineId}/link-job`, { jobId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });
+      qc.invalidateQueries({ queryKey: ['work-orders'] });
+      qc.invalidateQueries({ queryKey: ['jobs'] });
+    },
+  });
+}
+
+export function useUnlinkJobFromLine(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ lineId, jobId }: { lineId: string; jobId: string }) =>
+      api.post<WorkOrderDetail>(`/work-orders/${id}/lines/${lineId}/unlink-job`, { jobId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });
+      qc.invalidateQueries({ queryKey: ['work-orders'] });
+      qc.invalidateQueries({ queryKey: ['jobs'] });
+    },
   });
 }
 

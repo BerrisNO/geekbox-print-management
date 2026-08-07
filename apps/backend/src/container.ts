@@ -21,6 +21,7 @@ import { InboundService } from './procurement/inbound/service.js';
 import { PurchaseOrderService } from './procurement/po/service.js';
 import { ReceptionService } from './procurement/reception/service.js';
 import { createLogger, type Logger } from './shared/logger.js';
+import { WorkOrderService } from './work-orders/service.js';
 
 /**
  * Dependency container. Wires all module services with a single Db + EventBus.
@@ -45,6 +46,7 @@ export interface Container {
   reception: ReceptionService;
   costing: CostingService;
   jobs: JobService;
+  workOrders: WorkOrderService;
   integration: IntegrationService;
   supervisor: TelemetrySupervisor;
   taskSync: TaskSyncService;
@@ -72,6 +74,7 @@ export function buildContainer(config: AppConfig, db: Db): Container {
   const costing = new CostingService(db, bus);
   const parts = new PartService(db, costing);
   const jobs = new JobService(db, ledger, costing, ams, bus);
+  const workOrders = new WorkOrderService(db, parts, costing);
 
   const normalizer = new Normalizer((msg) => log.info(msg));
   const vault = new AesGcmTokenVault(config.tokenEncryptionKey);
@@ -128,6 +131,7 @@ export function buildContainer(config: AppConfig, db: Db): Container {
     reception,
     costing,
     jobs,
+    workOrders,
     integration,
     supervisor,
     taskSync,

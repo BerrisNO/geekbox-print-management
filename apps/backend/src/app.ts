@@ -15,6 +15,7 @@ import { registerInventoryRoutes } from './inventory/router.js';
 import { registerJobRoutes } from './jobs/router.js';
 import { registerPartRoutes } from './parts/router.js';
 import { registerProcurementRoutes } from './procurement/router.js';
+import { registerWorkOrderRoutes } from './work-orders/router.js';
 
 export type BuildAppOptions = {
   /** Directory of the built SPA to serve (absent in tests). */
@@ -110,6 +111,7 @@ export async function buildApp(c: Container, opts: BuildAppOptions = {}): Promis
   registerCustomerRoutes(app, c);
   registerPartRoutes(app, c);
   registerProcurementRoutes(app, c);
+  registerWorkOrderRoutes(app, c);
   registerIntegrationRoutes(app, c);
   registerJobRoutes(app, c);
   registerSystemRoutes(app, c);

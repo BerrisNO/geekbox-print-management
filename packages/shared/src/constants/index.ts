@@ -52,6 +52,15 @@ export const PO_STATUSES = [
 ] as const;
 export type PoStatus = (typeof PO_STATUSES)[number];
 
+export const WORK_ORDER_STATUSES = [
+  'draft',
+  'confirmed',
+  'in_production',
+  'completed',
+  'cancelled',
+] as const;
+export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
+
 export const PRINTER_STATES = [
   'idle',
   'printing',

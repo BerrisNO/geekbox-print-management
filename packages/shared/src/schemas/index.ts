@@ -5,6 +5,7 @@ import {
   MATERIALS,
   SPOOL_STATUSES,
   SPOOL_TYPES,
+  WORK_ORDER_STATUSES,
 } from '../constants/index.js';
 
 /**
@@ -194,6 +195,48 @@ export const poStatusTransitionSchema = z.object({
   status: z.enum(['ordered', 'cancelled']),
 });
 export type PoStatusTransitionInput = z.infer<typeof poStatusTransitionSchema>;
+
+// ---- work orders (Stage 2) ----
+// A work order is a customer-facing production order: a header (customer + status)
+// plus lines referencing parts. Line economics (unit price/cost) are SNAPSHOT
+// server-side at write time from the part's computed economics, so a placed order
+// doesn't silently re-price when cost rates change later.
+export const workOrderStatusSchema = z.enum(WORK_ORDER_STATUSES);
+export type WorkOrderStatusInput = z.infer<typeof workOrderStatusSchema>;
+
+export const workOrderLineInputSchema = z.object({
+  partId: uuid,
+  quantity: z.number().int().min(1),
+  /** Optional per-line sell price override (minor units); else part's effective sell. */
+  unitPriceMinor: z.number().int().min(0).optional(),
+  notes: z.string().optional(),
+});
+export type WorkOrderLineInput = z.infer<typeof workOrderLineInputSchema>;
+
+export const workOrderInputSchema = z.object({
+  customerId: uuid,
+  orderRef: z.string().optional(),
+  orderDate: z.string().optional(),
+  status: workOrderStatusSchema.default('draft'),
+  notes: z.string().optional(),
+  lines: z.array(workOrderLineInputSchema).min(1),
+});
+export type WorkOrderInput = z.infer<typeof workOrderInputSchema>;
+
+export const workOrderPatchSchema = z.object({
+  orderRef: z.string().optional(),
+  orderDate: z.string().optional(),
+  notes: z.string().optional(),
+  status: workOrderStatusSchema.optional(),
+  /** Full replacement of lines when provided; re-snapshots economics. */
+  lines: z.array(workOrderLineInputSchema).min(1).optional(),
+});
+export type WorkOrderPatch = z.infer<typeof workOrderPatchSchema>;
+
+export const workOrderLinkJobSchema = z.object({
+  jobId: uuid,
+});
+export type WorkOrderLinkJobInput = z.infer<typeof workOrderLinkJobSchema>;
 
 // ---- receptions ----
 export const receptionLineInputSchema = z.object({

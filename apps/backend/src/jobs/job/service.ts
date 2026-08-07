@@ -440,6 +440,7 @@ export class JobService {
       usageStatus: r.usageStatus as PrintJob['usageStatus'],
       totalUsedG,
       cost: cost ? { totalCostMinor: cost.totalCostMinor, incomplete: cost.incomplete } : null,
+      workOrderLineId: r.workOrderLineId,
       createdAt: new Date(r.createdAt).toISOString(),
       updatedAt: new Date(r.updatedAt).toISOString(),
     };

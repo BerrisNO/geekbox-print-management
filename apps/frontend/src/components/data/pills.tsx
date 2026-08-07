@@ -1,10 +1,17 @@
-import type { JobOutcome, PoStatus, PrinterState, SpoolStatus } from '@geekbox/shared';
+import type {
+  JobOutcome,
+  PoStatus,
+  PrinterState,
+  SpoolStatus,
+  WorkOrderStatus,
+} from '@geekbox/shared';
 import {
   Ban,
   Box,
   CheckCircle2,
   CircleDashed,
   CirclePause,
+  Factory,
   HelpCircle,
   PackageCheck,
   Pencil,
@@ -72,6 +79,26 @@ const PO_STATUS: Record<
 
 export function PoStatusPill({ status }: { status: PoStatus }) {
   const s = PO_STATUS[status];
+  return (
+    <Badge variant={s.variant} icon={s.icon}>
+      {s.label}
+    </Badge>
+  );
+}
+
+const WORK_ORDER_STATUS: Record<
+  WorkOrderStatus,
+  { variant: BadgeProps['variant']; icon: typeof Box; label: string }
+> = {
+  draft: { variant: 'neutral', icon: Pencil, label: 'Draft' },
+  confirmed: { variant: 'info', icon: CheckCircle2, label: 'Confirmed' },
+  in_production: { variant: 'primary', icon: Factory, label: 'In production' },
+  completed: { variant: 'success', icon: PackageCheck, label: 'Completed' },
+  cancelled: { variant: 'neutral', icon: Ban, label: 'Cancelled' },
+};
+
+export function WorkOrderStatusPill({ status }: { status: WorkOrderStatus }) {
+  const s = WORK_ORDER_STATUS[status];
   return (
     <Badge variant={s.variant} icon={s.icon}>
       {s.label}

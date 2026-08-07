@@ -10,6 +10,7 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { printer } from './integration.js';
 import { spool, spoolLedgerEntry } from './inventory.js';
+import { workOrderLine } from './work-orders.js';
 
 /** print_job (FR-401). bambu_task_id is the idempotent upsert key. */
 export const printJob = sqliteTable(
@@ -25,6 +26,8 @@ export const printJob = sqliteTable(
     durationMin: real('duration_min'),
     outcome: text('outcome').notNull().default('unknown'),
     usageStatus: text('usage_status').notNull().default('unknown'),
+    // Fulfillment link to a work-order line (Stage 2); null when unassigned.
+    workOrderLineId: text('work_order_line_id').references(() => workOrderLine.id),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },
