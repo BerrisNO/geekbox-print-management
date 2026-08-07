@@ -10,6 +10,7 @@ import type {
   JobListResponse,
   LedgerEntry,
   LowStockAlert,
+  Manufacturer,
   Printer,
   PrintJobDetail,
   ProductDetail,
@@ -97,6 +98,38 @@ export function useArchiveVendor() {
   return useMutation({
     mutationFn: (id: string) => api.post<Vendor>(`/vendors/${id}/archive`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['vendors'] }),
+  });
+}
+
+/* ---------------------------- manufacturers --------------------------- */
+export function useManufacturers(includeArchived = false) {
+  return useQuery({
+    queryKey: queryKeys.manufacturers.all(includeArchived),
+    queryFn: () => api.get<Manufacturer[]>('/manufacturers', { query: { includeArchived } }),
+  });
+}
+
+export function useCreateManufacturer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => api.post<Manufacturer>('/manufacturers', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['manufacturers'] }),
+  });
+}
+
+export function useUpdateManufacturer(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => api.patch<Manufacturer>(`/manufacturers/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['manufacturers'] }),
+  });
+}
+
+export function useArchiveManufacturer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<Manufacturer>(`/manufacturers/${id}/archive`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['manufacturers'] }),
   });
 }
 

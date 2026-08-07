@@ -1,6 +1,7 @@
-import type { FilamentProduct, Vendor } from '@geekbox/shared';
+import type { FilamentProduct, Manufacturer, Vendor } from '@geekbox/shared';
 import {
   DENSITY_DEFAULTS_G_CM3,
+  type ManufacturerInput,
   type Material,
   type ProductInput,
   type SpoolType,
@@ -8,7 +9,13 @@ import {
 } from '@geekbox/shared';
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
-import { filamentProduct, spool, vendor } from '../../db/schema/inventory.js';
+import {
+  filamentProduct,
+  manufacturer,
+  productVendor,
+  spool,
+  vendor,
+} from '../../db/schema/inventory.js';
 import { NotFoundError } from '../../shared/errors/index.js';
 import { newId } from '../../shared/ids.js';
 
@@ -73,6 +80,61 @@ export class CatalogService {
     archived: r.archived === 1,
   });
 
+  // ---- manufacturers ----
+  listManufacturers(includeArchived = false): Manufacturer[] {
+    const rows = this.db.select().from(manufacturer).all();
+    return rows.filter((r) => includeArchived || r.archived === 0).map(this.toManufacturer);
+  }
+
+  getManufacturer(id: string): Manufacturer {
+    const row = this.db.select().from(manufacturer).where(eq(manufacturer.id, id)).get();
+    if (!row) throw new NotFoundError('Manufacturer');
+    return this.toManufacturer(row);
+  }
+
+  createManufacturer(input: ManufacturerInput): Manufacturer {
+    const id = newId();
+    this.db
+      .insert(manufacturer)
+      .values({
+        id,
+        name: input.name,
+        url: input.url ?? null,
+        notes: input.notes ?? null,
+        archived: 0,
+      })
+      .run();
+    return this.getManufacturer(id);
+  }
+
+  updateManufacturer(id: string, input: Partial<ManufacturerInput>): Manufacturer {
+    this.getManufacturer(id);
+    this.db
+      .update(manufacturer)
+      .set({
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.url !== undefined ? { url: input.url } : {}),
+        ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      })
+      .where(eq(manufacturer.id, id))
+      .run();
+    return this.getManufacturer(id);
+  }
+
+  archiveManufacturer(id: string): Manufacturer {
+    this.getManufacturer(id);
+    this.db.update(manufacturer).set({ archived: 1 }).where(eq(manufacturer.id, id)).run();
+    return this.getManufacturer(id);
+  }
+
+  private toManufacturer = (r: typeof manufacturer.$inferSelect): Manufacturer => ({
+    id: r.id,
+    name: r.name,
+    url: r.url,
+    notes: r.notes,
+    archived: r.archived === 1,
+  });
+
   // ---- products (FR-101) ----
   listProducts(filter: {
     material?: Material;
@@ -104,7 +166,7 @@ export class CatalogService {
       .values({
         id,
         material: input.material,
-        manufacturer: input.manufacturer ?? null,
+        manufacturerId: input.manufacturerId ?? null,
         name: input.name ?? null,
         category: input.category ?? null,
         spoolType: input.spoolType ?? 'plastic',
@@ -122,6 +184,7 @@ export class CatalogService {
         archived: 0,
       })
       .run();
+    this.syncProductVendors(id, input.vendorId, input.vendorIds);
     return this.getProduct(id);
   }
 
@@ -131,7 +194,7 @@ export class CatalogService {
       .update(filamentProduct)
       .set({
         ...(input.material !== undefined ? { material: input.material } : {}),
-        ...(input.manufacturer !== undefined ? { manufacturer: input.manufacturer } : {}),
+        ...(input.manufacturerId !== undefined ? { manufacturerId: input.manufacturerId } : {}),
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.category !== undefined ? { category: input.category } : {}),
         ...(input.spoolType !== undefined ? { spoolType: input.spoolType } : {}),
@@ -157,7 +220,36 @@ export class CatalogService {
       })
       .where(eq(filamentProduct.id, id))
       .run();
+    // Reconcile suppliers when the caller sent an explicit set, or when the
+    // primary vendor changed (so the primary is always present as a supplier).
+    if (input.vendorIds !== undefined || input.vendorId !== undefined) {
+      const current = this.db
+        .select({ vendorId: filamentProduct.vendorId })
+        .from(filamentProduct)
+        .where(eq(filamentProduct.id, id))
+        .get();
+      this.syncProductVendors(id, current?.vendorId, input.vendorIds);
+    }
     return this.getProduct(id);
+  }
+
+  /**
+   * Replace a product's product_vendor rows to match the provided set, always
+   * including the primary vendor. Only touches rows when a set is provided.
+   */
+  private syncProductVendors(
+    productId: string,
+    primaryVendorId: string | undefined,
+    vendorIds: string[] | undefined,
+  ): void {
+    // On create the primary is always seeded even without an explicit set.
+    const ids = new Set<string>(vendorIds ?? []);
+    if (primaryVendorId) ids.add(primaryVendorId);
+    if (vendorIds === undefined && !primaryVendorId) return;
+    this.db.delete(productVendor).where(eq(productVendor.productId, productId)).run();
+    for (const vendorId of ids) {
+      this.db.insert(productVendor).values({ productId, vendorId }).run();
+    }
   }
 
   archiveProduct(id: string): FilamentProduct {
@@ -185,11 +277,32 @@ export class CatalogService {
     return v?.name ?? '';
   }
 
+  private manufacturerName(manufacturerId: string | null): string | null {
+    if (!manufacturerId) return null;
+    const m = this.db
+      .select({ name: manufacturer.name })
+      .from(manufacturer)
+      .where(eq(manufacturer.id, manufacturerId))
+      .get();
+    return m?.name ?? null;
+  }
+
+  /** All suppliers for a product (join, includes archived vendors). */
+  private productVendors(productId: string): { id: string; name: string }[] {
+    return this.db
+      .select({ id: vendor.id, name: vendor.name })
+      .from(productVendor)
+      .innerJoin(vendor, eq(productVendor.vendorId, vendor.id))
+      .where(eq(productVendor.productId, productId))
+      .all();
+  }
+
   private toProduct(r: typeof filamentProduct.$inferSelect): FilamentProduct {
     return {
       id: r.id,
       material: r.material as Material,
-      manufacturer: r.manufacturer,
+      manufacturer: this.manufacturerName(r.manufacturerId),
+      manufacturerId: r.manufacturerId,
       name: r.name,
       category: r.category,
       spoolType: r.spoolType as SpoolType,
@@ -197,6 +310,7 @@ export class CatalogService {
       colorHex: r.colorHex,
       vendorId: r.vendorId,
       vendorName: this.vendorName(r.vendorId),
+      vendors: this.productVendors(r.id),
       diameterMm: r.diameterMm,
       nominalNetWeightG: r.nominalNetWeightG,
       defaultPriceMinor: r.defaultPriceMinor,

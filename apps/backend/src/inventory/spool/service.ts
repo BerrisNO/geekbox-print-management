@@ -14,6 +14,7 @@ import { printer } from '../../db/schema/integration.js';
 import {
   amsSlotMapping,
   filamentProduct,
+  manufacturer,
   spool,
   spoolLedgerEntry,
   vendor,
@@ -206,6 +207,15 @@ export class SpoolService {
           .where(eq(vendor.id, product.vendorId))
           .get()
       : undefined;
+    // Manufacturer is now a managed entity (join); the free-text column is legacy.
+    const mfr =
+      product?.manufacturerId != null
+        ? this.db
+            .select({ name: manufacturer.name })
+            .from(manufacturer)
+            .where(eq(manufacturer.id, product.manufacturerId))
+            .get()
+        : undefined;
     const priceForValuation = r.purchasePriceMinor ?? product?.defaultPriceMinor ?? 0;
     const valuationEstimated = r.purchasePriceMinor == null;
     const mapping = this.db
@@ -232,7 +242,7 @@ export class SpoolService {
       productId: r.productId,
       product: {
         material: (product?.material ?? 'OTHER') as Material,
-        manufacturer: product?.manufacturer ?? null,
+        manufacturer: mfr?.name ?? null,
         name: product?.name ?? null,
         category: product?.category ?? null,
         spoolType: (product?.spoolType ?? 'plastic') as SpoolType,

@@ -110,6 +110,12 @@ const vendorsRoute = createRoute({
   component: lazyRouteComponent(() => import('./routes/Vendors'), 'VendorsPage'),
 });
 
+const manufacturersRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/catalog/manufacturers',
+  component: lazyRouteComponent(() => import('./routes/Manufacturers'), 'ManufacturersPage'),
+});
+
 const inboundRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/inbound',
@@ -220,6 +226,7 @@ const routeTree = rootRoute.addChildren([
     spoolDetailRoute,
     productsRoute,
     vendorsRoute,
+    manufacturersRoute,
     inboundRoute,
     purchaseOrdersRoute,
     purchaseOrderDetailRoute,

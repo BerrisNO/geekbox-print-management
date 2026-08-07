@@ -40,10 +40,20 @@ export interface Vendor {
   archived: boolean;
 }
 
+export interface Manufacturer {
+  id: string;
+  name: string;
+  url: string | null;
+  notes: string | null;
+  archived: boolean;
+}
+
 export interface FilamentProduct {
   id: string;
   material: Material;
+  /** Manufacturer display name, joined from `manufacturer` (null when unset). */
   manufacturer: string | null;
+  manufacturerId: string | null;
   name: string | null;
   category: string | null;
   spoolType: SpoolType;
@@ -51,6 +61,8 @@ export interface FilamentProduct {
   colorHex: string | null;
   vendorId: string;
   vendorName: string;
+  /** All suppliers (primary + additional), for display; includes archived vendors. */
+  vendors: { id: string; name: string }[];
   diameterMm: number;
   nominalNetWeightG: number;
   defaultPriceMinor: number;

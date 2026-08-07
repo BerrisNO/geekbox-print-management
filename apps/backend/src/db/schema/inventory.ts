@@ -3,6 +3,7 @@ import {
   check,
   index,
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
@@ -19,6 +20,15 @@ export const vendor = sqliteTable('vendor', {
   archived: integer('archived').notNull().default(0),
 });
 
+/** manufacturer — the maker of a filament (distinct from vendor/seller). */
+export const manufacturer = sqliteTable('manufacturer', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  url: text('url'),
+  notes: text('notes'),
+  archived: integer('archived').notNull().default(0),
+});
+
 /** filament_product (FR-101, FR-106). */
 export const filamentProduct = sqliteTable(
   'filament_product',
@@ -26,6 +36,7 @@ export const filamentProduct = sqliteTable(
     id: text('id').primaryKey(),
     material: text('material').notNull(),
     manufacturer: text('manufacturer'),
+    manufacturerId: text('manufacturer_id').references(() => manufacturer.id),
     name: text('name'),
     category: text('category'),
     spoolType: text('spool_type').notNull().default('plastic'),
@@ -57,6 +68,20 @@ export const filamentProduct = sqliteTable(
       sql`${t.spoolType} IN ('plastic','cardboard','refill','reusable')`,
     ),
   ],
+);
+
+/** product_vendor — additional suppliers per product (primary lives on filament_product.vendor_id). */
+export const productVendor = sqliteTable(
+  'product_vendor',
+  {
+    productId: text('product_id')
+      .notNull()
+      .references(() => filamentProduct.id),
+    vendorId: text('vendor_id')
+      .notNull()
+      .references(() => vendor.id),
+  },
+  (t) => [primaryKey({ columns: [t.productId, t.vendorId] })],
 );
 
 /** spool — aggregate root (FR-102/103/107). */

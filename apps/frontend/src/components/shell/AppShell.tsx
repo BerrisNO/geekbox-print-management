@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import {
   Boxes,
+  Factory,
   LayoutDashboard,
   Menu,
   Moon,
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
   { to: '/inventory', label: 'Inventory', icon: Warehouse },
   { to: '/catalog/products', label: 'Products', icon: Package },
   { to: '/catalog/vendors', label: 'Vendors', icon: Boxes },
+  { to: '/catalog/manufacturers', label: 'Manufacturers', icon: Factory },
   { to: '/inbound', label: 'Inbound', icon: Truck },
   { to: '/purchase-orders', label: 'Purchase orders', icon: ShoppingCart },
   { to: '/jobs', label: 'Print jobs', icon: ReceiptText },

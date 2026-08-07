@@ -54,16 +54,29 @@ export const vendorInputSchema = z.object({
 });
 export type VendorInput = z.infer<typeof vendorInputSchema>;
 
+// ---- manufacturers ----
+// The maker of a filament (distinct from the vendor/seller). Managed entity with
+// archive, mirroring vendors. URL uses the same bare-domain normalization.
+export const manufacturerInputSchema = z.object({
+  name: z.string().min(1),
+  url: vendorUrl,
+  notes: z.string().optional(),
+});
+export type ManufacturerInput = z.infer<typeof manufacturerInputSchema>;
+
 // ---- products ----
 export const productInputSchema = z.object({
   material: materialSchema,
-  manufacturer: z.string().optional(),
+  manufacturerId: z.string().uuid().optional(),
   name: z.string().optional(),
   category: z.string().optional(),
   spoolType: z.enum(SPOOL_TYPES).default('plastic'),
   colorName: z.string().min(1),
   colorHex: colorHex.optional(),
   vendorId: uuid,
+  // Full set of supplier vendor ids (primary + additional). Backend unions the
+  // primary vendorId in and reconciles product_vendor rows to match.
+  vendorIds: z.array(z.string().uuid()).optional(),
   diameterMm: z
     .number()
     .refine((v) => (DIAMETERS_MM as readonly number[]).includes(v), {

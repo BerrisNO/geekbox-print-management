@@ -1,6 +1,7 @@
-import type { FilamentProduct, SpoolType } from '@geekbox/shared';
+import type { FilamentProduct, Manufacturer, SpoolType } from '@geekbox/shared';
 import { MATERIALS, productInputSchema, SPOOL_TYPES, type Vendor } from '@geekbox/shared';
 import { useForm } from '@tanstack/react-form';
+import { useState } from 'react';
 import { Button } from '../components/ui/button';
 import { Input, Textarea } from '../components/ui/input';
 import { Select } from '../components/ui/select';
@@ -16,21 +17,29 @@ const SPOOL_TYPE_LABELS: Record<SpoolType, string> = {
 
 export function ProductForm({
   vendors,
+  manufacturers,
   initial,
   onSubmit,
   onCancel,
   submitting,
 }: {
   vendors: Vendor[];
+  manufacturers: Manufacturer[];
   initial?: FilamentProduct;
   onSubmit: (values: unknown) => void;
   onCancel: () => void;
   submitting?: boolean;
 }) {
+  // Additional suppliers beyond the primary vendor. The primary is always
+  // included on submit; this set holds the extras the user has ticked.
+  const [additionalVendorIds, setAdditionalVendorIds] = useState<string[]>(() =>
+    (initial?.vendors ?? []).map((v) => v.id).filter((id) => id !== (initial?.vendorId ?? '')),
+  );
+
   const form = useForm({
     defaultValues: {
       material: initial?.material ?? 'PLA',
-      manufacturer: initial?.manufacturer ?? '',
+      manufacturerId: initial?.manufacturerId ?? '',
       name: initial?.name ?? '',
       category: initial?.category ?? '',
       spoolType: initial?.spoolType ?? 'plastic',
@@ -48,9 +57,13 @@ export function ProductForm({
     },
     onSubmit: ({ value }) => {
       const { defaultPrice, ...rest } = value;
+      // Full supplier set = primary vendor unioned with the ticked extras (deduped).
+      const vendorIds = Array.from(new Set([value.vendorId, ...additionalVendorIds])).filter(
+        Boolean,
+      );
       const clean = {
         ...rest,
-        manufacturer: value.manufacturer || undefined,
+        manufacturerId: value.manufacturerId || undefined,
         name: value.name || undefined,
         category: value.category || undefined,
         colorHex: value.colorHex || undefined,
@@ -59,6 +72,7 @@ export function ProductForm({
         defaultPriceMinor: majorToMinor(defaultPrice),
         lowStockThresholdG: value.lowStockThresholdG || undefined,
         lowStockMinSpools: value.lowStockMinSpools || undefined,
+        vendorIds,
       };
       const parsed = productInputSchema.safeParse(clean);
       onSubmit(parsed.success ? parsed.data : clean);
@@ -94,19 +108,22 @@ export function ProductForm({
       </form.Field>
 
       <div className="grid grid-cols-2 gap-3">
-        <form.Field name="manufacturer">
+        <form.Field name="manufacturerId">
           {(field) => (
-            <FormField
-              field={field}
-              label="Manufacturer"
-              hint="e.g. eSUN (the maker, not the seller)"
-            >
+            <FormField field={field} label="Manufacturer" hint="The maker, not the seller">
               {(control) => (
-                <Input
+                <Select
                   {...control}
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
-                />
+                >
+                  <option value="">— none —</option>
+                  {manufacturers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </Select>
               )}
             </FormField>
           )}
@@ -205,12 +222,17 @@ export function ProductForm({
 
       <form.Field name="vendorId">
         {(field) => (
-          <FormField field={field} label="Vendor" required>
+          <FormField field={field} label="Vendor (primary supplier)" required>
             {(control) => (
               <Select
                 {...control}
                 value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  field.handleChange(next);
+                  // The primary is always a supplier; drop it from the extras.
+                  setAdditionalVendorIds((prev) => prev.filter((id) => id !== next));
+                }}
               >
                 {vendors.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -222,6 +244,43 @@ export function ProductForm({
           </FormField>
         )}
       </form.Field>
+
+      <form.Subscribe selector={(s) => s.values.vendorId}>
+        {(primaryVendorId) => (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm font-medium text-foreground">
+              Additional suppliers
+            </legend>
+            <div className="flex flex-col gap-1.5">
+              {vendors.map((v) => {
+                const isPrimary = v.id === primaryVendorId;
+                const checked = isPrimary || additionalVendorIds.includes(v.id);
+                return (
+                  <label key={v.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-4 rounded border-input"
+                      checked={checked}
+                      disabled={isPrimary}
+                      onChange={(e) =>
+                        setAdditionalVendorIds((prev) =>
+                          e.target.checked
+                            ? Array.from(new Set([...prev, v.id]))
+                            : prev.filter((id) => id !== v.id),
+                        )
+                      }
+                    />
+                    <span>
+                      {v.name}
+                      {isPrimary ? ' (primary)' : ''}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+        )}
+      </form.Subscribe>
 
       <div className="grid grid-cols-2 gap-3">
         <form.Field name="diameterMm">
