@@ -130,26 +130,56 @@ export class TelemetrySupervisor {
     const p = this.db.select().from(printer).where(eq(printer.serial, serial)).get();
     if (!p) return; // unknown printer; ignore
     const capturedAt = new Date(snap.capturedAt).getTime();
-    const amsJson = snap.ams ? JSON.stringify(snap.ams) : null;
-    // UPSERT latest snapshot (ADR-008).
+    // UPSERT latest snapshot (ADR-008). Bambu sends a FULL report on pushall, then
+    // PARTIAL delta messages that omit most fields — so merge each report onto the
+    // previous snapshot rather than replacing it, or a partial would wipe good
+    // values (state, temps, AMS) to null.
     const existing = this.db
       .select()
       .from(telemetrySnapshot)
       .where(eq(telemetrySnapshot.printerId, p.id))
       .get();
+    let prevAms: TelemetrySnapshot['ams'] = null;
+    if (existing?.amsJson) {
+      try {
+        prevAms = JSON.parse(existing.amsJson) as TelemetrySnapshot['ams'];
+      } catch {
+        prevAms = null;
+      }
+    }
+    const coalesce = <T>(next: T | null | undefined, prev: T | null | undefined): T | null =>
+      next != null ? next : (prev ?? null);
+    // A partial with no gcode_state normalizes to 'unknown'; keep the last real state.
+    const printerState =
+      snap.printerState !== 'unknown'
+        ? snap.printerState
+        : ((existing?.printerState as TelemetrySnapshot['printerState']) ?? 'unknown');
+    const merged: Omit<TelemetrySnapshot, 'printerId'> = {
+      capturedAt: snap.capturedAt,
+      printerState,
+      taskName: coalesce(snap.taskName, existing?.taskName),
+      progressPct: coalesce(snap.progressPct, existing?.progressPct),
+      currentLayer: coalesce(snap.currentLayer, existing?.currentLayer),
+      totalLayers: coalesce(snap.totalLayers, existing?.totalLayers),
+      remainingTimeMin: coalesce(snap.remainingTimeMin, existing?.remainingTimeMin),
+      nozzleTempC: coalesce(snap.nozzleTempC, existing?.nozzleTempC),
+      bedTempC: coalesce(snap.bedTempC, existing?.bedTempC),
+      chamberTempC: coalesce(snap.chamberTempC, existing?.chamberTempC),
+      ams: snap.ams ?? prevAms,
+    };
     const values = {
       printerId: p.id,
       capturedAt,
-      printerState: snap.printerState,
-      taskName: snap.taskName,
-      progressPct: snap.progressPct,
-      currentLayer: snap.currentLayer,
-      totalLayers: snap.totalLayers,
-      remainingTimeMin: snap.remainingTimeMin,
-      nozzleTempC: snap.nozzleTempC,
-      bedTempC: snap.bedTempC,
-      chamberTempC: snap.chamberTempC,
-      amsJson,
+      printerState: merged.printerState,
+      taskName: merged.taskName,
+      progressPct: merged.progressPct,
+      currentLayer: merged.currentLayer,
+      totalLayers: merged.totalLayers,
+      remainingTimeMin: merged.remainingTimeMin,
+      nozzleTempC: merged.nozzleTempC,
+      bedTempC: merged.bedTempC,
+      chamberTempC: merged.chamberTempC,
+      amsJson: merged.ams ? JSON.stringify(merged.ams) : null,
     };
     if (existing) {
       this.db
@@ -168,12 +198,12 @@ export class TelemetrySupervisor {
     this.touchLink({ lastMqttMessageAt: nowMs() });
 
     // Tray-content verification (AC-305.3): flag mappings whose observed tray differs.
-    this.verifyMappings(p.id, snap.ams);
+    this.verifyMappings(p.id, merged.ams);
 
     this.bus.publish({
       type: 'TelemetrySnapshotUpdated',
       printerId: p.id,
-      snapshot: { ...snap, printerId: p.id },
+      snapshot: { ...merged, printerId: p.id },
     });
   }
 
