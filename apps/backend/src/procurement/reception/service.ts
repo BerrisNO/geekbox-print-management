@@ -36,10 +36,21 @@ export class ReceptionService {
     private readonly bus: EventBus,
   ) {}
 
-  private nextLabel(offset: number): string {
-    // Called inside the tx; count current spools + offset for this batch.
-    const rows = this.db.select({ id: spool.id }).from(spool).all();
-    return `S-${String(rows.length + offset + 1).padStart(4, '0')}`;
+  private nextLabel(): string {
+    // Derive from the max existing S-#### suffix, guarded by a taken-set. Called
+    // per spool inside the tx; already-inserted batch spools are visible, so each
+    // call returns the next free label without needing an external offset.
+    const labels = this.db.select({ label: spool.label }).from(spool).all();
+    const taken = new Set(labels.map((r) => r.label));
+    let max = 0;
+    for (const { label } of labels) {
+      const m = /^S-(\d+)$/.exec(label);
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    let n = max + 1;
+    let label = `S-${String(n).padStart(4, '0')}`;
+    while (taken.has(label)) label = `S-${String(++n).padStart(4, '0')}`;
+    return label;
   }
 
   post(purchaseOrderId: string, input: ReceptionInput): ReceptionResultInternal {
@@ -90,7 +101,6 @@ export class ReceptionService {
         .values({ id: receiptId, purchaseOrderId, receivedAt: now, notes: input.notes ?? null })
         .run();
 
-      let spoolOffset = 0;
       for (const line of input.lines) {
         const poLine = poLineById.get(line.poLineId)!;
         const product = this.db
@@ -131,7 +141,7 @@ export class ReceptionService {
             .insert(spool)
             .values({
               id: spoolId,
-              label: this.nextLabel(spoolOffset),
+              label: this.nextLabel(),
               productId: product.id,
               initialNetWeightG: netWeight,
               remainingNetWeightG: 0,
@@ -146,7 +156,6 @@ export class ReceptionService {
             })
             .run();
           this.ledger.recordInitialInTx({ spoolId, initialWeightG: netWeight, note: 'Reception' });
-          spoolOffset += 1;
           createdSpoolIds.push(spoolId);
         }
       }

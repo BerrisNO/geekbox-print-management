@@ -8,7 +8,7 @@ import type {
   SpoolType,
 } from '@geekbox/shared';
 import { SPOOL_TYPE_TARE_DEFAULTS_G } from '@geekbox/shared';
-import { count, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { printer } from '../../db/schema/integration.js';
 import {
@@ -31,8 +31,20 @@ export class SpoolService {
   ) {}
 
   private nextLabel(): string {
-    const n = this.db.select({ c: count() }).from(spool).get()?.c ?? 0;
-    return `S-${String(n + 1).padStart(4, '0')}`;
+    // Derive from the max existing S-#### suffix (not the row count) so deletions,
+    // archived spools, or spools created by other paths never cause a duplicate;
+    // guard against any leftover collision with a taken-set.
+    const labels = this.db.select({ label: spool.label }).from(spool).all();
+    const taken = new Set(labels.map((r) => r.label));
+    let max = 0;
+    for (const { label } of labels) {
+      const m = /^S-(\d+)$/.exec(label);
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    let n = max + 1;
+    let label = `S-${String(n).padStart(4, '0')}`;
+    while (taken.has(label)) label = `S-${String(++n).padStart(4, '0')}`;
+    return label;
   }
 
   list(filter: {
