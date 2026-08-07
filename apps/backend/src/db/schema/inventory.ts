@@ -29,6 +29,16 @@ export const manufacturer = sqliteTable('manufacturer', {
   archived: integer('archived').notNull().default(0),
 });
 
+/** customer — the customer-facing side of the catalog split. */
+export const customer = sqliteTable('customer', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email'),
+  phone: text('phone'),
+  notes: text('notes'),
+  archived: integer('archived').notNull().default(0),
+});
+
 /** filament_product (FR-101, FR-106). */
 export const filamentProduct = sqliteTable(
   'filament_product',
@@ -82,6 +92,50 @@ export const productVendor = sqliteTable(
       .references(() => vendor.id),
   },
   (t) => [primaryKey({ columns: [t.productId, t.vendorId] })],
+);
+
+/** part — the customer product (distinct from the raw filament_product material). */
+export const part = sqliteTable(
+  'part',
+  {
+    id: text('id').primaryKey(),
+    articleNo: text('article_no').notNull().unique(),
+    name: text('name').notNull(),
+    customerId: text('customer_id').references(() => customer.id),
+    customerArticleNo: text('customer_article_no'),
+    printTimeMin: integer('print_time_min'),
+    laborTimeMin: integer('labor_time_min'),
+    powerDrawW: integer('power_draw_w'),
+    markupPct: real('markup_pct'),
+    sellPriceMinor: integer('sell_price_minor'),
+    notes: text('notes'),
+    archived: integer('archived').notNull().default(0),
+  },
+  (t) => [
+    check('part_print_time_ck', sql`${t.printTimeMin} IS NULL OR ${t.printTimeMin} >= 0`),
+    check('part_labor_time_ck', sql`${t.laborTimeMin} IS NULL OR ${t.laborTimeMin} >= 0`),
+    check('part_power_draw_ck', sql`${t.powerDrawW} IS NULL OR ${t.powerDrawW} >= 0`),
+    check('part_markup_ck', sql`${t.markupPct} IS NULL OR ${t.markupPct} >= 0`),
+    check('part_sell_price_ck', sql`${t.sellPriceMinor} IS NULL OR ${t.sellPriceMinor} >= 0`),
+  ],
+);
+
+/** part_material — BOM: grams of a filament_product used by a part. */
+export const partMaterial = sqliteTable(
+  'part_material',
+  {
+    partId: text('part_id')
+      .notNull()
+      .references(() => part.id),
+    filamentProductId: text('filament_product_id')
+      .notNull()
+      .references(() => filamentProduct.id),
+    grams: real('grams').notNull(),
+  },
+  (t) => [
+    check('part_material_grams_ck', sql`${t.grams} > 0`),
+    primaryKey({ columns: [t.partId, t.filamentProductId] }),
+  ],
 );
 
 /** spool — aggregate root (FR-102/103/107). */

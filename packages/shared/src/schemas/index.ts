@@ -93,6 +93,43 @@ export const productInputSchema = z.object({
 });
 export type ProductInput = z.infer<typeof productInputSchema>;
 
+// ---- customers ----
+// The customer-facing side of the catalog split. Simpler than vendor: name is
+// required; email/phone/notes optional. Email accepts a valid address or an
+// empty string (which the backend treats as null).
+export const customerInputSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email().optional().or(z.literal('')),
+  phone: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type CustomerInput = z.infer<typeof customerInputSchema>;
+
+// ---- parts (customer products) ----
+// A part is the customer-facing product with an optional BOM of filament
+// materials (grams per filament_product) and pricing inputs. Economics are
+// computed server-side (see computePartEconomics) and previewed client-side.
+export const partMaterialInputSchema = z.object({
+  filamentProductId: uuid,
+  grams: z.number().positive(),
+});
+export type PartMaterialInput = z.infer<typeof partMaterialInputSchema>;
+
+export const partInputSchema = z.object({
+  articleNo: z.string().min(1),
+  name: z.string().min(1),
+  customerId: z.string().uuid().optional(),
+  customerArticleNo: z.string().optional(),
+  printTimeMin: z.number().int().min(0).optional(),
+  laborTimeMin: z.number().int().min(0).optional(),
+  powerDrawW: z.number().int().min(0).optional(),
+  markupPct: z.number().min(0).optional(),
+  sellPriceMinor: z.number().int().min(0).optional(),
+  notes: z.string().optional(),
+  materials: z.array(partMaterialInputSchema).default([]),
+});
+export type PartInput = z.infer<typeof partInputSchema>;
+
 // ---- spools ----
 export const spoolInputSchema = z.object({
   productId: uuid,
@@ -277,6 +314,9 @@ export type AttributeUsageInput = z.infer<typeof attributeUsageSchema>;
 export const costRatesInputSchema = z.object({
   energyPricePerKwhMinor: z.number().int().min(0).nullable().optional(),
   machineRatePerHourMinor: z.number().int().min(0).nullable().optional(),
+  laborRatePerHourMinor: z.number().int().min(0).nullable().optional(),
+  defaultMarkupPct: z.number().min(0).nullable().optional(),
+  defaultPowerDrawW: z.number().int().min(0).nullable().optional(),
   currencyCode: z.string().length(3).optional(),
   printerPowerDraw: z.array(z.object({ printerId: uuid, watts: z.number().positive() })).optional(),
 });

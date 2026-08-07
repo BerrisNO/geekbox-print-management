@@ -1,5 +1,6 @@
 import { EventBus } from './bus/event-bus.js';
 import type { AppConfig } from './config.js';
+import { CustomerService } from './customers/service.js';
 import type { Db } from './db/client.js';
 import { IdentityService } from './identity/service.js';
 import { SessionService } from './identity/session.js';
@@ -15,6 +16,7 @@ import { LedgerWriter } from './inventory/ledger/ledger-write.js';
 import { SpoolService } from './inventory/spool/service.js';
 import { CostingService } from './jobs/costing/service.js';
 import { JobService } from './jobs/job/service.js';
+import { PartService } from './parts/service.js';
 import { InboundService } from './procurement/inbound/service.js';
 import { PurchaseOrderService } from './procurement/po/service.js';
 import { ReceptionService } from './procurement/reception/service.js';
@@ -33,6 +35,8 @@ export interface Container {
   sessions: SessionService;
   ledger: LedgerWriter;
   catalog: CatalogService;
+  customers: CustomerService;
+  parts: PartService;
   spools: SpoolService;
   inventoryRead: InventoryReadService;
   ams: AmsMappingService;
@@ -56,6 +60,7 @@ export function buildContainer(config: AppConfig, db: Db): Container {
 
   const ledger = new LedgerWriter(db);
   const catalog = new CatalogService(db);
+  const customers = new CustomerService(db);
   const spools = new SpoolService(db, ledger);
   const inventoryRead = new InventoryReadService(db);
   const ams = new AmsMappingService(db);
@@ -65,6 +70,7 @@ export function buildContainer(config: AppConfig, db: Db): Container {
   const reception = new ReceptionService(db, ledger, spools, purchaseOrders, bus);
 
   const costing = new CostingService(db, bus);
+  const parts = new PartService(db, costing);
   const jobs = new JobService(db, ledger, costing, ams, bus);
 
   const normalizer = new Normalizer((msg) => log.info(msg));
@@ -112,6 +118,8 @@ export function buildContainer(config: AppConfig, db: Db): Container {
     sessions,
     ledger,
     catalog,
+    customers,
+    parts,
     spools,
     inventoryRead,
     ams,

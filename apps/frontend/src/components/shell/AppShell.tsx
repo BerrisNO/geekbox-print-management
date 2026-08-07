@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import {
   Boxes,
+  Component,
   Factory,
   LayoutDashboard,
   Menu,
@@ -11,6 +12,7 @@ import {
   ShoppingCart,
   Sun,
   Truck,
+  Users,
   Warehouse,
 } from 'lucide-react';
 import { useId } from 'react';
@@ -31,7 +33,9 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/inventory', label: 'Inventory', icon: Warehouse },
-  { to: '/catalog/products', label: 'Products', icon: Package },
+  { to: '/parts', label: 'Products', icon: Component },
+  { to: '/customers', label: 'Customers', icon: Users },
+  { to: '/catalog/products', label: 'Filament', icon: Package },
   { to: '/catalog/vendors', label: 'Vendors', icon: Boxes },
   { to: '/catalog/manufacturers', label: 'Manufacturers', icon: Factory },
   { to: '/inbound', label: 'Inbound', icon: Truck },

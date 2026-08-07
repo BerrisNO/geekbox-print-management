@@ -75,6 +75,9 @@ export const costRateSettings = sqliteTable(
     id: text('id').primaryKey(),
     energyPricePerKwhMinor: integer('energy_price_per_kwh_minor'),
     machineRatePerHourMinor: integer('machine_rate_per_hour_minor'),
+    laborRatePerHourMinor: integer('labor_rate_per_hour_minor'),
+    defaultMarkupPct: real('default_markup_pct'),
+    defaultPowerDrawW: integer('default_power_draw_w'),
     currencyCode: text('currency_code').notNull().default('NOK'),
   },
   (t) => [

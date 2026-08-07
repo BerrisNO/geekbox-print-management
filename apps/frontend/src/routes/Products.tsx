@@ -127,11 +127,11 @@ export function ProductsPage() {
   return (
     <>
       <PageHeader
-        title="Products"
-        description="Filament catalog. Prices are recorded on historical spools/POs (AC-101.2)."
+        title="Filament"
+        description="Raw filament materials catalog. Prices are recorded on historical spools/POs (AC-101.2)."
         actions={
           <Button onClick={() => setEditing('new')} disabled={(vendors.data ?? []).length === 0}>
-            <Plus aria-hidden /> New product
+            <Plus aria-hidden /> New filament
           </Button>
         }
       />

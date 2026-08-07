@@ -48,6 +48,55 @@ export interface Manufacturer {
   archived: boolean;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  archived: boolean;
+}
+
+/** A single BOM line on a part: grams of a filament product. */
+export interface PartMaterialLine {
+  filamentProductId: string;
+  /** Readable filament name, e.g. "eSUN PLA Blue" (manufacturer + material + color). */
+  filamentLabel: string;
+  grams: number;
+}
+
+/** Server-computed pricing breakdown for a part (all integer minor units). */
+export interface PartEconomics {
+  materialCostMinor: number;
+  energyCostMinor: number;
+  machineCostMinor: number;
+  laborCostMinor: number;
+  unitCostMinor: number;
+  effectiveSellPriceMinor: number;
+  marginMinor: number;
+  /** Margin as a whole percent of the effective sell price. */
+  marginPct: number;
+}
+
+export interface Part {
+  id: string;
+  articleNo: string;
+  name: string;
+  customerId: string | null;
+  /** Customer display name, joined from `customer` (null when Universal/unset). */
+  customerName: string | null;
+  customerArticleNo: string | null;
+  printTimeMin: number | null;
+  laborTimeMin: number | null;
+  powerDrawW: number | null;
+  markupPct: number | null;
+  sellPriceMinor: number | null;
+  notes: string | null;
+  archived: boolean;
+  materials: PartMaterialLine[];
+  economics: PartEconomics;
+}
+
 export interface FilamentProduct {
   id: string;
   material: Material;
@@ -439,6 +488,9 @@ export interface SyncResult {
 export interface CostRateSettings {
   energyPricePerKwhMinor: number | null;
   machineRatePerHourMinor: number | null;
+  laborRatePerHourMinor: number | null;
+  defaultMarkupPct: number | null;
+  defaultPowerDrawW: number | null;
   currencyCode: string;
   printerPowerDraw: Array<{ printerId: string; printerName: string; watts: number }>;
 }

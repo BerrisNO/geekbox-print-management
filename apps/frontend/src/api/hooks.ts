@@ -2,6 +2,7 @@ import type {
   AdjustResult,
   AttributeResult,
   CostRateSettings,
+  Customer,
   FilamentProduct,
   GoodsReceiptDetail,
   InboundRow,
@@ -11,6 +12,7 @@ import type {
   LedgerEntry,
   LowStockAlert,
   Manufacturer,
+  Part,
   Printer,
   PrintJobDetail,
   ProductDetail,
@@ -130,6 +132,77 @@ export function useArchiveManufacturer() {
   return useMutation({
     mutationFn: (id: string) => api.post<Manufacturer>(`/manufacturers/${id}/archive`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['manufacturers'] }),
+  });
+}
+
+/* ------------------------------ customers ----------------------------- */
+export function useCustomers(includeArchived = false) {
+  return useQuery({
+    queryKey: queryKeys.customers.all(includeArchived),
+    queryFn: () => api.get<Customer[]>('/customers', { query: { includeArchived } }),
+  });
+}
+
+export function useCreateCustomer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => api.post<Customer>('/customers', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['customers'] }),
+  });
+}
+
+export function useUpdateCustomer(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => api.patch<Customer>(`/customers/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['customers'] }),
+  });
+}
+
+export function useArchiveCustomer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<Customer>(`/customers/${id}/archive`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['customers'] }),
+  });
+}
+
+/* -------------------------------- parts ------------------------------- */
+export function useParts(includeArchived = false) {
+  return useQuery({
+    queryKey: queryKeys.parts.all(includeArchived),
+    queryFn: () => api.get<Part[]>('/parts', { query: { includeArchived } }),
+  });
+}
+
+export function usePart(id: string) {
+  return useQuery({
+    queryKey: queryKeys.parts.detail(id),
+    queryFn: () => api.get<Part>(`/parts/${id}`),
+  });
+}
+
+export function useCreatePart() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => api.post<Part>('/parts', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['parts'] }),
+  });
+}
+
+export function useUpdatePart(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => api.patch<Part>(`/parts/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['parts'] }),
+  });
+}
+
+export function useArchivePart() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<Part>(`/parts/${id}/archive`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['parts'] }),
   });
 }
 

@@ -41,6 +41,9 @@ export class CostingService {
           id: SETTINGS_ID,
           energyPricePerKwhMinor: null,
           machineRatePerHourMinor: null,
+          laborRatePerHourMinor: null,
+          defaultMarkupPct: null,
+          defaultPowerDrawW: null,
           currencyCode: DEFAULT_CURRENCY_CODE,
         })
         .run();
@@ -54,6 +57,9 @@ export class CostingService {
     return {
       energyPricePerKwhMinor: row.energyPricePerKwhMinor,
       machineRatePerHourMinor: row.machineRatePerHourMinor,
+      laborRatePerHourMinor: row.laborRatePerHourMinor,
+      defaultMarkupPct: row.defaultMarkupPct,
+      defaultPowerDrawW: row.defaultPowerDrawW,
       currencyCode: row.currencyCode,
       printerPowerDraw: draws.map((d) => {
         const p = this.db
@@ -76,6 +82,15 @@ export class CostingService {
           : {}),
         ...(input.machineRatePerHourMinor !== undefined
           ? { machineRatePerHourMinor: input.machineRatePerHourMinor }
+          : {}),
+        ...(input.laborRatePerHourMinor !== undefined
+          ? { laborRatePerHourMinor: input.laborRatePerHourMinor }
+          : {}),
+        ...(input.defaultMarkupPct !== undefined
+          ? { defaultMarkupPct: input.defaultMarkupPct }
+          : {}),
+        ...(input.defaultPowerDrawW !== undefined
+          ? { defaultPowerDrawW: input.defaultPowerDrawW }
           : {}),
         ...(input.currencyCode !== undefined ? { currencyCode: input.currencyCode } : {}),
       })

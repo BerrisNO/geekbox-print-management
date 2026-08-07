@@ -3,6 +3,7 @@ import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import type { Container } from './container.js';
+import { registerCustomerRoutes } from './customers/router.js';
 import { registerErrorHandler, sendProblem } from './http/error-handler.js';
 import { registerSessionGate } from './http/session-gate.js';
 import { SseBroadcaster } from './http/sse.js';
@@ -12,6 +13,7 @@ import { registerAuthRoutes } from './identity/router.js';
 import { registerIntegrationRoutes } from './integration/router.js';
 import { registerInventoryRoutes } from './inventory/router.js';
 import { registerJobRoutes } from './jobs/router.js';
+import { registerPartRoutes } from './parts/router.js';
 import { registerProcurementRoutes } from './procurement/router.js';
 
 export type BuildAppOptions = {
@@ -105,6 +107,8 @@ export async function buildApp(c: Container, opts: BuildAppOptions = {}): Promis
   // Module routers.
   registerAuthRoutes(app, c);
   registerInventoryRoutes(app, c);
+  registerCustomerRoutes(app, c);
+  registerPartRoutes(app, c);
   registerProcurementRoutes(app, c);
   registerIntegrationRoutes(app, c);
   registerJobRoutes(app, c);

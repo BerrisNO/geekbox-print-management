@@ -32,6 +32,14 @@ export const queryKeys = {
     all: (includeArchived?: boolean) =>
       ['manufacturers', { includeArchived: !!includeArchived }] as const,
   },
+  customers: {
+    all: (includeArchived?: boolean) =>
+      ['customers', { includeArchived: !!includeArchived }] as const,
+  },
+  parts: {
+    all: (includeArchived?: boolean) => ['parts', { includeArchived: !!includeArchived }] as const,
+    detail: (id: string) => ['part', id] as const,
+  },
   products: {
     all: (filters?: { material?: string; vendorId?: string; includeArchived?: boolean }) =>
       ['products', filters ?? {}] as const,

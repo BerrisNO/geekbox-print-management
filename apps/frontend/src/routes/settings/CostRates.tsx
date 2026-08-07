@@ -34,6 +34,9 @@ function CostRatesForm({
       // MAJOR NOK in the inputs; converted to minor on submit.
       energyPricePerKwh: minorToMajorInput(data.energyPricePerKwhMinor) ?? undefined,
       machineRatePerHour: minorToMajorInput(data.machineRatePerHourMinor) ?? undefined,
+      laborRatePerHour: minorToMajorInput(data.laborRatePerHourMinor) ?? undefined,
+      defaultMarkupPct: data.defaultMarkupPct ?? undefined,
+      defaultPowerDrawW: data.defaultPowerDrawW ?? undefined,
       currencyCode: data.currencyCode,
       printerPowerDraw: data.printerPowerDraw.map((p) => ({
         printerId: p.printerId,
@@ -45,6 +48,9 @@ function CostRatesForm({
       const body = {
         energyPricePerKwhMinor: majorToMinor(value.energyPricePerKwh) ?? null,
         machineRatePerHourMinor: majorToMinor(value.machineRatePerHour) ?? null,
+        laborRatePerHourMinor: majorToMinor(value.laborRatePerHour) ?? null,
+        defaultMarkupPct: value.defaultMarkupPct ?? null,
+        defaultPowerDrawW: value.defaultPowerDrawW ?? null,
         currencyCode: value.currencyCode || undefined,
         printerPowerDraw: value.printerPowerDraw.map((p) => ({
           printerId: p.printerId,
@@ -112,6 +118,78 @@ function CostRatesForm({
                       id={id}
                       type="number"
                       step="0.01"
+                      min="0"
+                      className="font-mono"
+                      value={field.state.value ?? ''}
+                      onChange={(e) =>
+                        field.handleChange(e.target.value ? Number(e.target.value) : undefined)
+                      }
+                    />
+                  )}
+                </FormField>
+              )}
+            </form.Field>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <form.Field name="laborRatePerHour">
+              {(field) => (
+                <FormField
+                  field={field}
+                  label="Labor rate / hour (NOK)"
+                  hint="Leave blank to disable labor cost"
+                >
+                  {({ id }) => (
+                    <Input
+                      id={id}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="font-mono"
+                      value={field.state.value ?? ''}
+                      onChange={(e) =>
+                        field.handleChange(e.target.value ? Number(e.target.value) : undefined)
+                      }
+                    />
+                  )}
+                </FormField>
+              )}
+            </form.Field>
+            <form.Field name="defaultMarkupPct">
+              {(field) => (
+                <FormField
+                  field={field}
+                  label="Default markup (%)"
+                  hint="Used when a part has none"
+                >
+                  {({ id }) => (
+                    <Input
+                      id={id}
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      className="font-mono"
+                      value={field.state.value ?? ''}
+                      onChange={(e) =>
+                        field.handleChange(e.target.value ? Number(e.target.value) : undefined)
+                      }
+                    />
+                  )}
+                </FormField>
+              )}
+            </form.Field>
+            <form.Field name="defaultPowerDrawW">
+              {(field) => (
+                <FormField
+                  field={field}
+                  label="Default power draw (W)"
+                  hint="Used when a part has none"
+                >
+                  {({ id }) => (
+                    <Input
+                      id={id}
+                      type="number"
+                      step="1"
                       min="0"
                       className="font-mono"
                       value={field.state.value ?? ''}
