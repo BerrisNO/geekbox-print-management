@@ -1,14 +1,14 @@
 import { SPOOL_STATUSES, spoolAdjustSchema } from '@geekbox/shared';
 import { useForm } from '@tanstack/react-form';
 import { Link, useParams } from '@tanstack/react-router';
-import { ArrowLeft, Scale, Settings2 } from 'lucide-react';
+import { ArrowLeft, Printer, Scale, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { ApiError } from '../api/client';
 import { useAdjustSpool, useSpool, useSpoolLedger, useTransitionSpoolStatus } from '../api/hooks';
 import { ColorSwatch, SpoolStatusPill } from '../components/data/pills';
 import { SpoolLedgerTable } from '../components/data/SpoolLedgerTable';
 import { PageHeader } from '../components/shell/PageHeader';
-import { Button } from '../components/ui/button';
+import { Button, buttonVariants } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { ConfirmDialog, Dialog } from '../components/ui/dialog';
 import { Input, Textarea } from '../components/ui/input';
@@ -30,12 +30,21 @@ export function SpoolDetailPage() {
       <PageHeader
         title={spool.data ? `Spool ${spool.data.label}` : 'Spool'}
         actions={
-          <Link
-            to="/inventory"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" aria-hidden /> Back
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/print/labels"
+              search={{ ids: spoolId, copies: 1 }}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              <Printer className="size-4" aria-hidden /> Print label
+            </Link>
+            <Link
+              to="/inventory"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" aria-hidden /> Back
+            </Link>
+          </div>
         }
       />
 

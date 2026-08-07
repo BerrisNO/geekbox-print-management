@@ -1,12 +1,12 @@
 import type { PurchaseOrderLine } from '@geekbox/shared';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { AlertTriangle, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, Printer } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { ApiError } from '../api/client';
 import { usePostReception, usePurchaseOrder } from '../api/hooks';
 import { ColorSwatch } from '../components/data/pills';
 import { PageHeader } from '../components/shell/PageHeader';
-import { Button } from '../components/ui/button';
+import { Button, buttonVariants } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input, Textarea } from '../components/ui/input';
 import { Checkbox, ErrorState, Label, Skeleton } from '../components/ui/misc';
@@ -34,6 +34,7 @@ export function ReceptionPage() {
   const [notes, setNotes] = useState('');
   const notesId = useId();
   const [lines, setLines] = useState<Record<string, LineState>>({});
+  const [createdSpoolIds, setCreatedSpoolIds] = useState<string[] | null>(null);
 
   const outstanding = useMemo(
     () => (po.data?.lines ?? []).filter((l) => l.quantityOutstanding > 0),
@@ -98,13 +99,15 @@ export function ReceptionPage() {
       }),
     };
     post.mutate(body, {
-      onSuccess: () => {
+      onSuccess: (result) => {
         pushToast({
           variant: 'success',
           title: 'Goods received',
           description: 'Spools created and stock updated.',
         });
-        navigate({ to: '/purchase-orders/$id', params: { id } });
+        // Show a success panel (with a print-labels shortcut) rather than
+        // navigating straight back, so the user can print the just-created spools.
+        setCreatedSpoolIds(result.createdSpoolIds);
       },
       onError: (err) =>
         pushToast({
@@ -116,6 +119,56 @@ export function ReceptionPage() {
   }
 
   const validationError = validate();
+
+  if (createdSpoolIds) {
+    return (
+      <>
+        <PageHeader
+          title="Goods received"
+          description="Reception posted — spools created and stock updated."
+          actions={
+            <Link
+              to="/purchase-orders/$id"
+              params={{ id }}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" aria-hidden /> Back to PO
+            </Link>
+          }
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CheckCircle2 className="size-5 text-[var(--color-status-fresh)]" aria-hidden />
+              {createdSpoolIds.length} spool{createdSpoolIds.length === 1 ? '' : 's'} created
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
+              Print Bambu-style labels for the newly received spools.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {createdSpoolIds.length > 0 ? (
+                <Link
+                  to="/print/labels"
+                  search={{ ids: createdSpoolIds.join(','), copies: 1 }}
+                  className={buttonVariants({ variant: 'primary', size: 'md' })}
+                >
+                  <Printer className="size-4" aria-hidden /> Print labels ({createdSpoolIds.length})
+                </Link>
+              ) : null}
+              <Button
+                variant="outline"
+                onClick={() => navigate({ to: '/purchase-orders/$id', params: { id } })}
+              >
+                Back to purchase order
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
 
   return (
     <>

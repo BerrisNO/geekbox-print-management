@@ -1,7 +1,7 @@
 import { MATERIALS, SPOOL_STATUSES, type Spool } from '@geekbox/shared';
 import { useNavigate } from '@tanstack/react-router';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, Warehouse } from 'lucide-react';
+import { Plus, Printer, Warehouse } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useProducts, useRegisterSpool, useSpools } from '../api/hooks';
 import { DataTable } from '../components/data/DataTable';
@@ -83,8 +83,27 @@ export function InventoryPage() {
             orDash(null)
           ),
       },
+      {
+        id: 'actions',
+        header: '',
+        cell: (c) => (
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label="Print label"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate({ to: '/print/labels', search: { ids: c.row.original.id, copies: 1 } });
+              }}
+            >
+              <Printer className="size-4" aria-hidden />
+            </Button>
+          </div>
+        ),
+      },
     ],
-    [],
+    [navigate],
   );
 
   return (

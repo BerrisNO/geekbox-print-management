@@ -64,6 +64,22 @@ const appRoute = createRoute({
   ),
 });
 
+/* --------------------- guarded but chrome-less routes -------------------- */
+// Session-guarded like the app, but rendered WITHOUT AppShell so the print
+// output has no nav chrome (sibling of appRoute, not a child).
+const printLabelsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/print/labels',
+  beforeLoad: async ({ context, location }) => {
+    await requireSession(context.queryClient, location.href);
+  },
+  validateSearch: (search: Record<string, unknown>) => ({
+    ids: typeof search.ids === 'string' ? search.ids : '',
+    copies: Math.max(1, Number(search.copies) || 1),
+  }),
+  component: lazyRouteComponent(() => import('./routes/PrintLabels'), 'PrintLabelsPage'),
+});
+
 const dashboardRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/',
@@ -197,6 +213,7 @@ const backupRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   setupRoute,
+  printLabelsRoute,
   appRoute.addChildren([
     dashboardRoute,
     inventoryRoute,

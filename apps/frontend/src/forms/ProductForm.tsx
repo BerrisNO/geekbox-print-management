@@ -178,14 +178,25 @@ export function ProductForm({
         </form.Field>
         <form.Field name="colorHex">
           {(field) => (
-            <FormField field={field} label="Color hex" hint="#RRGGBB">
+            <FormField field={field} label="Color" hint="Pick from the wheel or type #RRGGBB">
               {(control) => (
-                <Input
-                  {...control}
-                  placeholder="#1E90FF"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    aria-label="Color picker"
+                    className="h-9 w-12 shrink-0 cursor-pointer rounded-md border border-input bg-background p-1"
+                    value={
+                      /^#[0-9A-Fa-f]{6}$/.test(field.state.value) ? field.state.value : '#1e90ff'
+                    }
+                    onChange={(e) => field.handleChange(e.target.value)}
+                  />
+                  <Input
+                    {...control}
+                    placeholder="#1E90FF"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                  />
+                </div>
               )}
             </FormField>
           )}
