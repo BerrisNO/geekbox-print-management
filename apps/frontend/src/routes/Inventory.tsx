@@ -1,4 +1,4 @@
-import { MATERIALS, SPOOL_STATUSES, type Spool } from '@geekbox/shared';
+import { MATERIALS, SPOOL_STATUSES, type Spool, type SpoolType } from '@geekbox/shared';
 import { useNavigate } from '@tanstack/react-router';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Plus, Printer, Warehouse } from 'lucide-react';
@@ -14,6 +14,13 @@ import { Select } from '../components/ui/select';
 import { Sheet } from '../components/ui/sheet';
 import { SpoolForm } from '../forms/SpoolForm';
 import { formatGrams, formatMoney, formatPct, orDash } from '../lib/format';
+
+const SPOOL_TYPE_LABELS: Record<SpoolType, string> = {
+  plastic: 'Plastic',
+  cardboard: 'Cardboard',
+  refill: 'Refill',
+  reusable: 'Reusable',
+};
 
 export function InventoryPage() {
   const navigate = useNavigate();
@@ -32,17 +39,49 @@ export function InventoryPage() {
         cell: (c) => <span className="font-mono font-medium">{c.getValue<string>()}</span>,
       },
       {
-        id: 'material',
-        header: 'Filament',
-        accessorFn: (r) => `${r.product.material} ${r.product.colorName}`,
+        id: 'product',
+        header: 'Product',
+        accessorFn: (r) =>
+          [
+            r.product.manufacturer,
+            r.product.name,
+            r.product.category,
+            r.product.material,
+            r.product.colorName,
+          ]
+            .filter(Boolean)
+            .join(' '),
+        cell: (c) => {
+          const p = c.row.original.product;
+          const title =
+            p.name || [p.manufacturer, p.category ?? p.material].filter(Boolean).join(' ');
+          const detail = [
+            p.manufacturer,
+            p.material,
+            p.category,
+            p.colorName,
+            `${p.diameterMm} mm`,
+            p.vendorName,
+          ]
+            .filter(Boolean)
+            .join(' · ');
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span className="flex items-center gap-1.5 font-medium">
+                <ColorSwatch hex={p.colorHex} name={p.colorName} />
+                {title}
+              </span>
+              <span className="text-xs text-muted-foreground">{detail}</span>
+            </div>
+          );
+        },
+      },
+      {
+        id: 'spoolType',
+        header: 'Spool',
+        accessorFn: (r) => r.product.spoolType,
         cell: (c) => (
-          <span className="flex items-center gap-1.5">
-            {c.row.original.product.material}
-            <ColorSwatch
-              hex={c.row.original.product.colorHex}
-              name={c.row.original.product.colorName}
-            />
-          </span>
+          <span className="text-sm">{SPOOL_TYPE_LABELS[c.row.original.product.spoolType]}</span>
         ),
       },
       {
