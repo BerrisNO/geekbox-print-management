@@ -61,11 +61,17 @@ export function SpoolForm({
       <div className="flex flex-col gap-1.5">
         <Label required>Product</Label>
         <Combobox
-          options={products.map((p) => ({
-            value: p.id,
-            label: `${p.material} ${p.colorName}`,
-            hint: p.vendorName,
-          }))}
+          options={products.map((p) => {
+            // Show the full identity — name/category distinguishes e.g. PLA Basic
+            // vs PLA+ vs PLA Matte, which "PLA Orange" alone cannot.
+            const title =
+              p.name || [p.manufacturer, p.category ?? p.material].filter(Boolean).join(' ');
+            return {
+              value: p.id,
+              label: `${title} — ${p.colorName}`,
+              hint: [p.vendorName, `${p.diameterMm} mm`].filter(Boolean).join(' · '),
+            };
+          })}
           value={productId}
           onChange={(v) => {
             setProductId(v);
