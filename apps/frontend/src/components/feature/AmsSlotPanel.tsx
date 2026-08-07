@@ -3,7 +3,8 @@ import { AlertTriangle, Link2, Link2Off, PackageX } from 'lucide-react';
 import { useState } from 'react';
 import { useConfirmMapping, useMapSlot, useSlots, useSpools, useUnmapSlot } from '../../api/hooks';
 import { cn } from '../../lib/cn';
-import { formatGrams, formatPct } from '../../lib/format';
+import { formatGrams } from '../../lib/format';
+import { ProgressRing } from '../data/ProgressRing';
 import { ColorSwatch } from '../data/pills';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -84,12 +85,19 @@ function SlotTile({ printerId, slot }: { printerId: string; slot: SlotView }) {
       ) : null}
 
       {spool && !spoolUnavailable ? (
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-sm">{spool.label}</span>
-          <ColorSwatch hex={spool.colorHex} name={`${spool.material} ${spool.colorName}`} />
-          <span className="font-mono text-xs text-muted-foreground">
-            {formatGrams(spool.remainingNetWeightG)} · {formatPct(spool.remainingPct)}
-          </span>
+        <div className="flex items-center gap-2">
+          <ProgressRing
+            pct={spool.remainingPct}
+            color={spool.colorHex}
+            label={`${spool.remainingPct}% of ${spool.material} ${spool.colorName} remaining`}
+          />
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate font-mono text-sm">{spool.label}</span>
+            <ColorSwatch hex={spool.colorHex} name={`${spool.material} ${spool.colorName}`} />
+            <span className="font-mono text-xs text-muted-foreground">
+              {formatGrams(spool.remainingNetWeightG)} left
+            </span>
+          </div>
         </div>
       ) : !slot.mapping ? (
         <span className="text-xs text-muted-foreground">Unmapped</span>

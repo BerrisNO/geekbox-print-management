@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/cn';
 import { useFocusTrap } from '../../lib/useFocusTrap';
 import { Button } from './button';
@@ -33,7 +34,9 @@ export function Dialog({
 
   if (!open) return null;
 
-  return (
+  // Portal to <body> so the modal escapes any ancestor stacking/overflow context
+  // (e.g. AMS tiles use `isolate`) — otherwise the dialog can render behind siblings.
+  return createPortal(
     <div
       className="fixed inset-0 z-[400] flex items-center justify-center p-4"
       role="dialog"
@@ -66,7 +69,8 @@ export function Dialog({
         <div>{children}</div>
         {footer ? <div className="mt-6 flex justify-end gap-2">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

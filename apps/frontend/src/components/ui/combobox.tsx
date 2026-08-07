@@ -102,6 +102,8 @@ export function Combobox({
                 const opt = filtered[active];
                 if (opt) choose(opt.value);
               } else if (e.key === 'Escape') {
+                // Close only the dropdown, not an enclosing dialog.
+                if (open) e.stopPropagation();
                 setOpen(false);
               }
             }}
