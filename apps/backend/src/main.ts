@@ -29,6 +29,9 @@ async function main(): Promise<void> {
   container.log.info(`GeekBOX listening on :${config.port}`);
 
   // Start the telemetry supervisor + task-sync scheduler after boot (ADR-004).
+  // Backfill a missing uid / normalize a legacy region on an existing link first,
+  // so the source is built with a valid MQTT username + host.
+  await container.integration.ensureLinkReady().catch(() => undefined);
   const source = container.integration.makeTelemetrySource();
   container.supervisor.configure(source);
   container.taskSync.startScheduler();

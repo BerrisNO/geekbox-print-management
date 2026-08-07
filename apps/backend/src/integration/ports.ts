@@ -33,6 +33,9 @@ export interface BambuCloudGateway {
   verifyCode(challengeId: string, code: string): Promise<LinkResult>;
   listDevices(accessToken: string): Promise<PrinterDescriptor[]>;
   fetchTasks(accessToken: string, sinceMs?: number): Promise<TaskRecord[]>;
+  /** Numeric account uid, needed for the MQTT username u_{uid}. The access token
+   * is opaque, so the uid is fetched from the authenticated preference endpoint. */
+  getUserUid(accessToken: string): Promise<string>;
 }
 
 export type TelemetryEvent =

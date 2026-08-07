@@ -29,4 +29,8 @@ export class ManualTokenAdapter implements BambuCloudGateway {
   fetchTasks(accessToken: string, sinceMs?: number): Promise<TaskRecord[]> {
     return this.rest.fetchTasks(accessToken, sinceMs);
   }
+
+  getUserUid(accessToken: string): Promise<string> {
+    return this.rest.getUserUid(accessToken);
+  }
 }

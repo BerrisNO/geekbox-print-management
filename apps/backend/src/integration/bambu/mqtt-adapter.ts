@@ -9,8 +9,10 @@ export type MqttAdapterConfig = {
   serials: string[];
 };
 
-/** Known Bambu MQTT regions (FR-303). */
-const KNOWN_REGIONS = new Set(['us', 'eu', 'cn']);
+/** Known Bambu MQTT regions (FR-303). Bambu's cloud MQTT only has `us` (the
+ * global cluster, used by EU accounts too) and `cn`. There is NO eu.mqtt.bambulab.com
+ * (it does not resolve), so legacy `eu` is aliased to the global `us` cluster below. */
+const KNOWN_REGIONS = new Set(['us', 'cn']);
 /** Only hostnames under the Bambu MQTT domain are permitted as custom values. */
 const ALLOWED_HOST_SUFFIX = '.mqtt.bambulab.com';
 
@@ -24,6 +26,8 @@ const ALLOWED_HOST_SUFFIX = '.mqtt.bambulab.com';
  */
 export function resolveBrokerHost(region: string): string {
   const value = region.trim().toLowerCase();
+  // Legacy alias: EU accounts use the global `us` MQTT cluster (no eu endpoint exists).
+  if (value === 'eu') return 'us.mqtt.bambulab.com';
   if (KNOWN_REGIONS.has(value)) {
     return `${value}.mqtt.bambulab.com`;
   }

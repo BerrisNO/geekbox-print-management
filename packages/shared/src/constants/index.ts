@@ -119,4 +119,6 @@ export const DEFAULT_CURRENCY_CODE = 'NOK';
 export const LIST_DEFAULT_LIMIT = 50;
 export const LIST_MAX_LIMIT = 500;
 
-export const MQTT_REGIONS = ['us', 'eu', 'cn'] as const;
+// Bambu cloud MQTT clusters. `us` is the global cluster (EU accounts use it too);
+// `cn` is China. There is no eu.mqtt.bambulab.com — legacy `eu` is aliased to `us`.
+export const MQTT_REGIONS = ['us', 'cn'] as const;

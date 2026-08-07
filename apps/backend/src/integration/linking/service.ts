@@ -117,6 +117,37 @@ export class IntegrationService {
     this.deps.supervisor.configure(this.makeTelemetrySource());
   }
 
+  /**
+   * Populate the numeric account uid (needed for the MQTT username u_{uid}). The
+   * Bambu access token is opaque, so the uid comes from the authenticated
+   * preference endpoint. No-op when already set or unlinked.
+   */
+  async ensureUid(): Promise<void> {
+    const l = this.link();
+    const token = this.accessToken();
+    if (!token || (l.bambuUid != null && l.bambuUid.length > 0)) return;
+    try {
+      const uid = await this.gateway.getUserUid(token);
+      this.deps.db.update(cloudLink).set({ bambuUid: uid }).where(eq(cloudLink.id, l.id)).run();
+    } catch (_err) {
+      this.recordError('uid_fetch_failed');
+    }
+  }
+
+  /**
+   * Boot/backfill: make an existing link usable. Normalizes the legacy `eu` region
+   * (no eu MQTT endpoint exists → global `us` cluster) and fetches a missing uid.
+   * Call before arming the supervisor at startup.
+   */
+  async ensureLinkReady(): Promise<void> {
+    const l = this.link();
+    if (!this.accessToken()) return;
+    if (l.mqttRegion === 'eu') {
+      this.deps.db.update(cloudLink).set({ mqttRegion: 'us' }).where(eq(cloudLink.id, l.id)).run();
+    }
+    await this.ensureUid();
+  }
+
   updateSettings(patch: IntegrationSettingsPatch): IntegrationSettings {
     const l = this.link();
     this.deps.db
@@ -146,6 +177,7 @@ export class IntegrationService {
       return { state: 'code_required', challengeId: result.challengeId };
     }
     this.persistTokens(result.bambuUid, result.accessToken, result.refreshToken, 'password');
+    await this.ensureUid();
     await this.refreshPrinters();
     this.rearm();
     return this.status();
@@ -160,6 +192,7 @@ export class IntegrationService {
     }
     if (result.kind !== 'linked') throw new UpstreamError('VERIFY_FAILED', 'Verification failed');
     this.persistTokens(result.bambuUid, result.accessToken, result.refreshToken, 'password');
+    await this.ensureUid();
     await this.refreshPrinters();
     this.rearm();
     return this.status();

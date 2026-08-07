@@ -78,4 +78,25 @@ export class BambuRestAdapter implements BambuCloudGateway {
     if (!res.ok) throw new Error(`tasks failed: ${res.status}`);
     return this.normalizer.normalizeTasks(await res.json());
   }
+
+  async getUserUid(accessToken: string): Promise<string> {
+    // The access token is opaque (not a JWT), so the numeric uid — required for the
+    // MQTT username u_{uid} — must be read from the authenticated preference
+    // endpoint. OrcaSlicer-style headers avoid Cloudflare edge blocking.
+    const res = await this.fetchFn(`${API_BASE}/v1/design-user-service/my/preference`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        accept: 'application/json',
+        'user-agent': 'bambu_network_agent/01.09.05.01',
+        'x-bbl-client-name': 'OrcaSlicer',
+        'x-bbl-client-type': 'slicer',
+      },
+    });
+    if (!res.ok) throw new Error(`preference failed: ${res.status}`);
+    const json = (await res.json()) as { uid?: number | string };
+    if (json.uid == null || String(json.uid).length === 0) {
+      throw new Error('preference response missing uid');
+    }
+    return String(json.uid);
+  }
 }
