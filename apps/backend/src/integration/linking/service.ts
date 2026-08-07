@@ -107,6 +107,16 @@ export class IntegrationService {
     };
   }
 
+  /**
+   * Re-evaluate the telemetry source (current token + tracked printers) and
+   * (re)start the supervisor. MUST be used after any link/token/printer/settings
+   * change: supervisor.restart() alone reuses the source factory captured at boot,
+   * so a printer or link added at runtime would never actually arm the listener.
+   */
+  private rearm(): void {
+    this.deps.supervisor.configure(this.makeTelemetrySource());
+  }
+
   updateSettings(patch: IntegrationSettingsPatch): IntegrationSettings {
     const l = this.link();
     this.deps.db
@@ -120,7 +130,7 @@ export class IntegrationService {
       })
       .where(eq(cloudLink.id, l.id))
       .run();
-    void this.deps.supervisor.restart(); // listener reconnects on change
+    this.rearm(); // listener reconnects on change
     return this.settings();
   }
 
@@ -137,7 +147,7 @@ export class IntegrationService {
     }
     this.persistTokens(result.bambuUid, result.accessToken, result.refreshToken, 'password');
     await this.refreshPrinters();
-    void this.deps.supervisor.restart();
+    this.rearm();
     return this.status();
   }
 
@@ -151,7 +161,7 @@ export class IntegrationService {
     if (result.kind !== 'linked') throw new UpstreamError('VERIFY_FAILED', 'Verification failed');
     this.persistTokens(result.bambuUid, result.accessToken, result.refreshToken, 'password');
     await this.refreshPrinters();
-    void this.deps.supervisor.restart();
+    this.rearm();
     return this.status();
   }
 
@@ -163,7 +173,7 @@ export class IntegrationService {
     this.gateway = new ManualTokenAdapter(this.deps.normalizer, this.deps.fetchFn ?? fetch);
     this.persistTokens(bambuUid, accessToken, refreshToken, 'manual_token');
     void this.refreshPrinters().catch(() => undefined);
-    void this.deps.supervisor.restart();
+    this.rearm();
     return this.status();
   }
 
@@ -257,7 +267,7 @@ export class IntegrationService {
         lastSeenAt: null,
       })
       .run();
-    void this.deps.supervisor.restart();
+    this.rearm();
     return this.getPrinter(id);
   }
 
@@ -271,7 +281,7 @@ export class IntegrationService {
       })
       .where(eq(printer.id, id))
       .run();
-    if (patch.tracked !== undefined) void this.deps.supervisor.restart();
+    if (patch.tracked !== undefined) this.rearm();
     return this.getPrinter(id);
   }
 
@@ -325,7 +335,7 @@ export class IntegrationService {
       }
     }
     this.deps.db.update(cloudLink).set({ lastRestSuccessAt: nowMs() }).run();
-    void this.deps.supervisor.restart();
+    this.rearm();
     return this.listPrinters();
   }
 

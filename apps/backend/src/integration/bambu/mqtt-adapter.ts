@@ -89,6 +89,16 @@ export class BambuMqttAdapter implements TelemetrySource {
     client.on('connect', () => {
       for (const serial of this.config.serials) {
         client.subscribe(`device/${serial}/report`, { qos: 0 });
+        // Bambu printers only publish on state change. Request a full state dump
+        // (pushall) so the dashboard populates immediately instead of waiting for
+        // the next change — otherwise an idle printer sends nothing after connect.
+        client.publish(
+          `device/${serial}/request`,
+          JSON.stringify({
+            pushing: { sequence_id: '0', command: 'pushall', version: 1, push_target: 1 },
+          }),
+          { qos: 0 },
+        );
       }
       this.emit({ kind: 'connected' });
     });
