@@ -116,6 +116,12 @@ const manufacturersRoute = createRoute({
   component: lazyRouteComponent(() => import('./routes/Manufacturers'), 'ManufacturersPage'),
 });
 
+const materialsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/catalog/materials',
+  component: lazyRouteComponent(() => import('./routes/Materials'), 'MaterialsPage'),
+});
+
 const partsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/parts',
@@ -251,6 +257,7 @@ const routeTree = rootRoute.addChildren([
     productsRoute,
     vendorsRoute,
     manufacturersRoute,
+    materialsRoute,
     partsRoute,
     customersRoute,
     workOrdersRoute,

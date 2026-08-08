@@ -2,7 +2,12 @@
  * Cross-cutting constants shared by backend and frontend.
  */
 
-/** Material enum — mirrors filament_product.material CHECK (data-model §3). */
+/**
+ * Materials are a user-editable catalog (the `material` table) rather than a
+ * closed enum. `Material` is the material NAME as stored on filament_product;
+ * MATERIALS is the seed list applied by migration 0007 and kept for tests.
+ */
+export type Material = string;
 export const MATERIALS = [
   'PLA',
   'PETG',
@@ -14,10 +19,9 @@ export const MATERIALS = [
   'SUPPORT',
   'OTHER',
 ] as const;
-export type Material = (typeof MATERIALS)[number];
 
-/** Seeded density defaults (g/cm3) per material — documented per FR-402 / ES-402.1. */
-export const DENSITY_DEFAULTS_G_CM3: Record<Material, number> = {
+/** Seed density defaults (g/cm3) per built-in material (FR-402 / ES-402.1). */
+export const DENSITY_DEFAULTS_G_CM3: Record<string, number> = {
   PLA: 1.24,
   PETG: 1.27,
   ABS: 1.04,
@@ -28,6 +32,9 @@ export const DENSITY_DEFAULTS_G_CM3: Record<Material, number> = {
   SUPPORT: 1.2,
   OTHER: 1.2,
 };
+
+/** Fallback density (g/cm3) when a material has no configured density. */
+export const DENSITY_FALLBACK_G_CM3 = 1.2;
 
 export const SPOOL_STATUSES = ['in_stock', 'in_use', 'depleted', 'archived'] as const;
 export type SpoolStatus = (typeof SPOOL_STATUSES)[number];

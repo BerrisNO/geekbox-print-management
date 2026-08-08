@@ -49,6 +49,18 @@ export interface Manufacturer {
   archived: boolean;
 }
 
+/** A row of the user-editable material catalog (PLA, PETG, …). */
+export interface MaterialDef {
+  id: string;
+  name: string;
+  /** Default density (g/cm³) applied to new products of this material. */
+  densityGCm3: number;
+  notes: string | null;
+  archived: boolean;
+  /** Number of filament products (incl. archived) using this material. */
+  productCount: number;
+}
+
 export interface Customer {
   id: string;
   name: string;

@@ -1,9 +1,9 @@
-import { MATERIALS, SPOOL_STATUSES, type Spool, type SpoolType } from '@geekbox/shared';
+import { SPOOL_STATUSES, type Spool, type SpoolType } from '@geekbox/shared';
 import { useNavigate } from '@tanstack/react-router';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Plus, Printer, Warehouse } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useProducts, useRegisterSpool, useSpools } from '../api/hooks';
+import { useMaterials, useProducts, useRegisterSpool, useSpools } from '../api/hooks';
 import { DataTable } from '../components/data/DataTable';
 import { ColorSwatch, SpoolStatusPill } from '../components/data/pills';
 import { InventorySummary } from '../components/feature/InventorySummary';
@@ -13,7 +13,7 @@ import { EmptyState } from '../components/ui/misc';
 import { Select } from '../components/ui/select';
 import { Sheet } from '../components/ui/sheet';
 import { SpoolForm } from '../forms/SpoolForm';
-import { formatGrams, formatMoney, formatPct, orDash } from '../lib/format';
+import { formatDate, formatGrams, formatMoney, formatPct, orDash } from '../lib/format';
 
 const SPOOL_TYPE_LABELS: Record<SpoolType, string> = {
   plastic: 'Plastic',
@@ -28,6 +28,7 @@ export function InventoryPage() {
   const [status, setStatus] = useState('');
   const spools = useSpools({ material: material || undefined, status: status || undefined });
   const products = useProducts();
+  const materials = useMaterials();
   const register = useRegisterSpool();
   const [registering, setRegistering] = useState(false);
 
@@ -87,18 +88,38 @@ export function InventoryPage() {
       {
         accessorKey: 'remainingNetWeightG',
         header: 'Remaining',
-        cell: (c) => (
-          <div className="flex flex-col">
-            <span className="font-mono">
-              {formatGrams(c.getValue<number>())} · {formatPct(c.row.original.remainingPct)}
-            </span>
-            {c.row.original.amsRemainingPct !== null ? (
-              <span className="font-mono text-xs text-muted-foreground">
-                AMS: {formatPct(c.row.original.amsRemainingPct)}
+        cell: (c) => {
+          const pct = Math.max(0, Math.min(100, c.row.original.remainingPct));
+          return (
+            <div className="flex flex-col gap-1">
+              <span className="font-mono">
+                {formatGrams(c.getValue<number>())} · {formatPct(c.row.original.remainingPct)}
               </span>
-            ) : null}
-          </div>
-        ),
+              <div
+                className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-muted"
+                role="progressbar"
+                aria-valuenow={Math.round(pct)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Remaining filament"
+              >
+                <div
+                  className={
+                    pct < 15
+                      ? 'h-full rounded-full bg-[var(--color-status-low)]'
+                      : 'h-full rounded-full bg-primary'
+                  }
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              {c.row.original.amsRemainingPct !== null ? (
+                <span className="font-mono text-xs text-muted-foreground">
+                  AMS: {formatPct(c.row.original.amsRemainingPct)}
+                </span>
+              ) : null}
+            </div>
+          );
+        },
       },
       {
         accessorKey: 'valuationMinor',
@@ -116,6 +137,13 @@ export function InventoryPage() {
         accessorKey: 'status',
         header: 'Status',
         cell: (c) => <SpoolStatusPill status={c.row.original.status} />,
+      },
+      {
+        accessorKey: 'acquiredAt',
+        header: 'Acquired',
+        cell: (c) => (
+          <span className="text-sm text-muted-foreground">{formatDate(c.getValue<string>())}</span>
+        ),
       },
       {
         id: 'location',
@@ -177,9 +205,9 @@ export function InventoryPage() {
           aria-label="Filter by material"
         >
           <option value="">All materials</option>
-          {MATERIALS.map((m) => (
-            <option key={m} value={m}>
-              {m}
+          {(materials.data ?? []).map((m) => (
+            <option key={m.id} value={m.name}>
+              {m.name}
             </option>
           ))}
         </Select>

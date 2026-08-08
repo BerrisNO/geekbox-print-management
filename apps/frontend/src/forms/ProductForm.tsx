@@ -1,5 +1,5 @@
-import type { FilamentProduct, Manufacturer, SpoolType } from '@geekbox/shared';
-import { MATERIALS, productInputSchema, SPOOL_TYPES, type Vendor } from '@geekbox/shared';
+import type { FilamentProduct, Manufacturer, MaterialDef, SpoolType } from '@geekbox/shared';
+import { productInputSchema, SPOOL_TYPES, type Vendor } from '@geekbox/shared';
 import { useForm } from '@tanstack/react-form';
 import { useState } from 'react';
 import { Button } from '../components/ui/button';
@@ -18,6 +18,7 @@ const SPOOL_TYPE_LABELS: Record<SpoolType, string> = {
 export function ProductForm({
   vendors,
   manufacturers,
+  materials,
   initial,
   onSubmit,
   onCancel,
@@ -25,11 +26,18 @@ export function ProductForm({
 }: {
   vendors: Vendor[];
   manufacturers: Manufacturer[];
+  materials: MaterialDef[];
   initial?: FilamentProduct;
   onSubmit: (values: unknown) => void;
   onCancel: () => void;
   submitting?: boolean;
 }) {
+  // Active materials, plus the product's current one even if since archived.
+  const materialOptions = materials
+    .filter((m) => !m.archived || m.name === initial?.material)
+    .map((m) => m.name);
+  const defaultMaterial =
+    initial?.material ?? (materialOptions.includes('PLA') ? 'PLA' : (materialOptions[0] ?? ''));
   // Additional suppliers beyond the primary vendor. The primary is always
   // included on submit; this set holds the extras the user has ticked.
   const [additionalVendorIds, setAdditionalVendorIds] = useState<string[]>(() =>
@@ -38,7 +46,7 @@ export function ProductForm({
 
   const form = useForm({
     defaultValues: {
-      material: initial?.material ?? 'PLA',
+      material: defaultMaterial,
       manufacturerId: initial?.manufacturerId ?? '',
       name: initial?.name ?? '',
       category: initial?.category ?? '',
@@ -89,14 +97,19 @@ export function ProductForm({
     >
       <form.Field name="material">
         {(field) => (
-          <FormField field={field} label="Material" required>
+          <FormField
+            field={field}
+            label="Material"
+            required
+            hint="Manage the list on the Materials page"
+          >
             {(control) => (
               <Select
                 {...control}
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value as never)}
               >
-                {MATERIALS.map((m) => (
+                {materialOptions.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>

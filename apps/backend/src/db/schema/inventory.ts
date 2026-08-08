@@ -29,6 +29,25 @@ export const manufacturer = sqliteTable('manufacturer', {
   archived: integer('archived').notNull().default(0),
 });
 
+/**
+ * material — user-editable material catalog (replaces the hardcoded enum).
+ * filament_product.material stores the name; renames cascade in CatalogService.
+ */
+export const material = sqliteTable(
+  'material',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    densityGCm3: real('density_g_cm3').notNull(),
+    notes: text('notes'),
+    archived: integer('archived').notNull().default(0),
+  },
+  (t) => [
+    check('material_density_ck', sql`${t.densityGCm3} > 0`),
+    uniqueIndex('material_name_uq').on(t.name),
+  ],
+);
+
 /** customer — the customer-facing side of the catalog split. */
 export const customer = sqliteTable('customer', {
   id: text('id').primaryKey(),
@@ -66,10 +85,8 @@ export const filamentProduct = sqliteTable(
     archived: integer('archived').notNull().default(0),
   },
   (t) => [
-    check(
-      'filament_product_material_ck',
-      sql`${t.material} IN ('PLA','PETG','ABS','TPU','ASA','PC','PA','SUPPORT','OTHER')`,
-    ),
+    // material values are validated against the `material` table at the service
+    // layer (user-editable list), not by a CHECK — see migration 0007.
     check('filament_product_diameter_ck', sql`${t.diameterMm} IN (1.75, 2.85)`),
     check('filament_product_nom_weight_ck', sql`${t.nominalNetWeightG} > 0`),
     check('filament_product_default_price_ck', sql`${t.defaultPriceMinor} >= 0`),

@@ -1,22 +1,25 @@
-import type { FilamentProduct, Manufacturer, Vendor } from '@geekbox/shared';
+import type { FilamentProduct, Manufacturer, MaterialDef, Vendor } from '@geekbox/shared';
 import {
   DENSITY_DEFAULTS_G_CM3,
+  DENSITY_FALLBACK_G_CM3,
   type ManufacturerInput,
   type Material,
+  type MaterialInput,
   type ProductInput,
   type SpoolType,
   type VendorInput,
 } from '@geekbox/shared';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import {
   filamentProduct,
   manufacturer,
+  material,
   productVendor,
   spool,
   vendor,
 } from '../../db/schema/inventory.js';
-import { NotFoundError } from '../../shared/errors/index.js';
+import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors/index.js';
 import { newId } from '../../shared/ids.js';
 
 export class CatalogService {
@@ -135,6 +138,103 @@ export class CatalogService {
     archived: r.archived === 1,
   });
 
+  // ---- materials (user-editable catalog) ----
+  listMaterials(includeArchived = false): MaterialDef[] {
+    const rows = this.db.select().from(material).all();
+    return rows
+      .filter((r) => includeArchived || r.archived === 0)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((r) => this.toMaterial(r));
+  }
+
+  getMaterial(id: string): MaterialDef {
+    const row = this.db.select().from(material).where(eq(material.id, id)).get();
+    if (!row) throw new NotFoundError('Material');
+    return this.toMaterial(row);
+  }
+
+  /** Case-insensitive lookup by name (the value stored on filament_product). */
+  private materialRowByName(name: string): typeof material.$inferSelect | undefined {
+    const target = name.trim().toLowerCase();
+    return this.db
+      .select()
+      .from(material)
+      .all()
+      .find((r) => r.name.toLowerCase() === target);
+  }
+
+  createMaterial(input: MaterialInput): MaterialDef {
+    const name = input.name.trim();
+    if (this.materialRowByName(name)) {
+      throw new ConflictError('MATERIAL_EXISTS', `Material "${name}" already exists`);
+    }
+    const id = newId();
+    this.db
+      .insert(material)
+      .values({
+        id,
+        name,
+        densityGCm3:
+          input.densityGCm3 ?? DENSITY_DEFAULTS_G_CM3[name.toUpperCase()] ?? DENSITY_FALLBACK_G_CM3,
+        notes: input.notes ?? null,
+        archived: 0,
+      })
+      .run();
+    return this.getMaterial(id);
+  }
+
+  updateMaterial(id: string, input: Partial<MaterialInput>): MaterialDef {
+    const current = this.db.select().from(material).where(eq(material.id, id)).get();
+    if (!current) throw new NotFoundError('Material');
+    const nextName = input.name?.trim();
+    if (nextName !== undefined) {
+      const clash = this.materialRowByName(nextName);
+      if (clash && clash.id !== id) {
+        throw new ConflictError('MATERIAL_EXISTS', `Material "${nextName}" already exists`);
+      }
+    }
+    this.db.transaction((tx) => {
+      tx.update(material)
+        .set({
+          ...(nextName !== undefined ? { name: nextName } : {}),
+          ...(input.densityGCm3 !== undefined ? { densityGCm3: input.densityGCm3 } : {}),
+          ...(input.notes !== undefined ? { notes: input.notes } : {}),
+        })
+        .where(eq(material.id, id))
+        .run();
+      // filament_product stores the material NAME; keep it in sync on rename.
+      if (nextName !== undefined && nextName !== current.name) {
+        tx.update(filamentProduct)
+          .set({ material: nextName })
+          .where(eq(filamentProduct.material, current.name))
+          .run();
+      }
+    });
+    return this.getMaterial(id);
+  }
+
+  archiveMaterial(id: string): MaterialDef {
+    this.getMaterial(id);
+    this.db.update(material).set({ archived: 1 }).where(eq(material.id, id)).run();
+    return this.getMaterial(id);
+  }
+
+  private toMaterial = (r: typeof material.$inferSelect): MaterialDef => {
+    const count = this.db
+      .select({ n: sql<number>`count(*)` })
+      .from(filamentProduct)
+      .where(eq(filamentProduct.material, r.name))
+      .get();
+    return {
+      id: r.id,
+      name: r.name,
+      densityGCm3: r.densityGCm3,
+      notes: r.notes,
+      archived: r.archived === 1,
+      productCount: count?.n ?? 0,
+    };
+  };
+
   // ---- products (FR-101) ----
   listProducts(filter: {
     material?: Material;
@@ -155,17 +255,32 @@ export class CatalogService {
     return this.toProduct(row);
   }
 
+  /**
+   * Resolve a material name against the catalog: returns the canonical stored
+   * name (normalizes casing) or throws when unknown.
+   */
+  private resolveMaterialName(name: string): { name: string; densityGCm3: number } {
+    const row = this.materialRowByName(name);
+    if (!row) {
+      throw new ValidationError(`Unknown material "${name}" — add it under Materials first`, {
+        material: [`Unknown material "${name}"`],
+      });
+    }
+    return { name: row.name, densityGCm3: row.densityGCm3 };
+  }
+
   createProduct(input: ProductInput): FilamentProduct {
     // vendor must exist
     const v = this.db.select().from(vendor).where(eq(vendor.id, input.vendorId)).get();
     if (!v) throw new NotFoundError('Vendor');
+    const mat = this.resolveMaterialName(input.material);
     const id = newId();
-    const density = input.densityGCm3 ?? DENSITY_DEFAULTS_G_CM3[input.material];
+    const density = input.densityGCm3 ?? mat.densityGCm3;
     this.db
       .insert(filamentProduct)
       .values({
         id,
-        material: input.material,
+        material: mat.name,
         manufacturerId: input.manufacturerId ?? null,
         name: input.name ?? null,
         category: input.category ?? null,
@@ -193,7 +308,9 @@ export class CatalogService {
     this.db
       .update(filamentProduct)
       .set({
-        ...(input.material !== undefined ? { material: input.material } : {}),
+        ...(input.material !== undefined
+          ? { material: this.resolveMaterialName(input.material).name }
+          : {}),
         ...(input.manufacturerId !== undefined ? { manufacturerId: input.manufacturerId } : {}),
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.category !== undefined ? { category: input.category } : {}),

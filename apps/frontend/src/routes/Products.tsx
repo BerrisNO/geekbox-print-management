@@ -1,11 +1,13 @@
-import { type FilamentProduct, MATERIALS, type SpoolType } from '@geekbox/shared';
+import { type FilamentProduct, type ProductStockRow, type SpoolType } from '@geekbox/shared';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Archive, Package, Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   useArchiveProduct,
   useCreateProduct,
+  useInventorySummary,
   useManufacturers,
+  useMaterials,
   useProducts,
   useUpdateProduct,
   useVendors,
@@ -20,7 +22,7 @@ import { EmptyState } from '../components/ui/misc';
 import { Select } from '../components/ui/select';
 import { Sheet } from '../components/ui/sheet';
 import { ProductForm } from '../forms/ProductForm';
-import { formatGrams, formatMoney } from '../lib/format';
+import { formatGrams, formatMoney, orDash } from '../lib/format';
 
 const SPOOL_TYPE_LABELS: Record<SpoolType, string> = {
   plastic: 'Plastic spool',
@@ -34,9 +36,18 @@ export function ProductsPage() {
   const products = useProducts({ material: material || undefined, includeArchived: true });
   const vendors = useVendors();
   const manufacturers = useManufacturers();
+  const materials = useMaterials(true);
+  const summary = useInventorySummary();
   const [editing, setEditing] = useState<FilamentProduct | 'new' | null>(null);
   const [archiving, setArchiving] = useState<FilamentProduct | null>(null);
   const archive = useArchiveProduct();
+
+  // Stock-on-hand per product, joined from the inventory summary.
+  const stockById = useMemo(() => {
+    const map = new Map<string, ProductStockRow>();
+    for (const row of summary.data ?? []) map.set(row.productId, row);
+    return map;
+  }, [summary.data]);
 
   const columns = useMemo<ColumnDef<FilamentProduct, unknown>[]>(
     () => [
@@ -46,19 +57,32 @@ export function ProductsPage() {
         cell: (c) => <span className="font-medium">{c.getValue<string>()}</span>,
       },
       {
-        accessorKey: 'manufacturer',
-        header: 'Manufacturer',
-        cell: (c) => c.getValue<string | null>() ?? '—',
-      },
-      {
-        accessorKey: 'colorName',
-        header: 'Color',
-        cell: (c) => <ColorSwatch hex={c.row.original.colorHex} name={c.getValue<string>()} />,
-      },
-      {
-        accessorKey: 'spoolType',
-        header: 'Spool type',
-        cell: (c) => SPOOL_TYPE_LABELS[c.getValue<SpoolType>()],
+        id: 'product',
+        header: 'Product',
+        accessorFn: (r) =>
+          [r.manufacturer, r.name, r.category, r.colorName].filter(Boolean).join(' '),
+        cell: (c) => {
+          const p = c.row.original;
+          const title =
+            p.name || [p.manufacturer, p.category ?? p.material].filter(Boolean).join(' ');
+          const detail = [
+            p.manufacturer,
+            p.category,
+            SPOOL_TYPE_LABELS[p.spoolType],
+            p.sku ? `SKU ${p.sku}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ');
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span className="flex items-center gap-1.5 font-medium">
+                <ColorSwatch hex={p.colorHex} name={p.colorName} />
+                {title} — {p.colorName}
+              </span>
+              <span className="text-xs text-muted-foreground">{detail}</span>
+            </div>
+          );
+        },
       },
       {
         accessorKey: 'vendorName',
@@ -84,9 +108,58 @@ export function ProductsPage() {
         cell: (c) => <span className="font-mono">{formatGrams(c.getValue<number>(), 0)}</span>,
       },
       {
+        accessorKey: 'densityGCm3',
+        header: 'Density',
+        cell: (c) => (
+          <span className="font-mono text-muted-foreground">
+            {c.getValue<number>().toFixed(2)} g/cm³
+          </span>
+        ),
+      },
+      {
         accessorKey: 'defaultPriceMinor',
         header: 'Default price',
-        cell: (c) => <span className="font-mono">{formatMoney(c.getValue<number>())}</span>,
+        cell: (c) => {
+          const p = c.row.original;
+          const perKgMinor =
+            p.defaultPriceMinor > 0 && p.nominalNetWeightG > 0
+              ? (p.defaultPriceMinor / p.nominalNetWeightG) * 1000
+              : null;
+          return (
+            <div className="flex flex-col">
+              <span className="font-mono">{formatMoney(c.getValue<number>())}</span>
+              {perKgMinor !== null ? (
+                <span className="font-mono text-xs text-muted-foreground">
+                  {formatMoney(Math.round(perKgMinor))}/kg
+                </span>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'stock',
+        header: 'In stock',
+        accessorFn: (r) => stockById.get(r.id)?.totalRemainingG ?? 0,
+        cell: (c) => {
+          const stock = stockById.get(c.row.original.id);
+          if (!stock || stock.usableSpools === 0) {
+            return <span className="text-muted-foreground">{orDash(null)}</span>;
+          }
+          return (
+            <div className="flex flex-col">
+              <span className="font-mono">
+                {stock.usableSpools} {stock.usableSpools === 1 ? 'spool' : 'spools'} ·{' '}
+                {formatGrams(stock.totalRemainingG, 0)}
+              </span>
+              {stock.lowStockActive ? (
+                <span>
+                  <Badge variant="danger">Low stock</Badge>
+                </span>
+              ) : null}
+            </div>
+          );
+        },
       },
       {
         accessorKey: 'archived',
@@ -121,7 +194,7 @@ export function ProductsPage() {
         ),
       },
     ],
-    [],
+    [stockById],
   );
 
   return (
@@ -144,9 +217,9 @@ export function ProductsPage() {
           aria-label="Filter by material"
         >
           <option value="">All materials</option>
-          {MATERIALS.map((m) => (
-            <option key={m} value={m}>
-              {m}
+          {(materials.data ?? []).map((m) => (
+            <option key={m.id} value={m.name}>
+              {m.name}
             </option>
           ))}
         </Select>
@@ -186,6 +259,7 @@ export function ProductsPage() {
             product={editing === 'new' ? undefined : editing}
             vendors={vendors.data ?? []}
             manufacturers={manufacturers.data ?? []}
+            materials={materials.data ?? []}
             onClose={() => setEditing(null)}
           />
         </Sheet>
@@ -210,6 +284,7 @@ function ProductEditor({
   product,
   vendors,
   manufacturers,
+  materials,
   onClose,
 }: {
   product?: FilamentProduct;
@@ -217,6 +292,7 @@ function ProductEditor({
   manufacturers: ReturnType<typeof useManufacturers>['data'] extends infer T
     ? NonNullable<T>
     : never;
+  materials: ReturnType<typeof useMaterials>['data'] extends infer T ? NonNullable<T> : never;
   onClose: () => void;
 }) {
   const create = useCreateProduct();
@@ -227,6 +303,7 @@ function ProductEditor({
     <ProductForm
       vendors={vendors}
       manufacturers={manufacturers}
+      materials={materials}
       initial={product}
       submitting={mutation.isPending}
       onCancel={onClose}

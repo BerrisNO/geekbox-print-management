@@ -1,6 +1,7 @@
 import {
   type Material,
   manufacturerInputSchema,
+  materialInputSchema,
   productInputSchema,
   type SpoolStatus,
   spoolAdjustSchema,
@@ -53,6 +54,27 @@ export function registerInventoryRoutes(app: FastifyInstance, c: Container): voi
   );
   app.post('/api/manufacturers/:id/archive', async (req) =>
     c.catalog.archiveManufacturer((req.params as { id: string }).id),
+  );
+
+  // ---- materials ----
+  app.get('/api/materials', async (req) => {
+    const q = req.query as { includeArchived?: string };
+    return c.catalog.listMaterials(q.includeArchived === 'true');
+  });
+  app.post('/api/materials', async (req, reply) =>
+    reply.status(201).send(c.catalog.createMaterial(materialInputSchema.parse(req.body))),
+  );
+  app.get('/api/materials/:id', async (req) =>
+    c.catalog.getMaterial((req.params as { id: string }).id),
+  );
+  app.patch('/api/materials/:id', async (req) =>
+    c.catalog.updateMaterial(
+      (req.params as { id: string }).id,
+      materialInputSchema.partial().parse(req.body),
+    ),
+  );
+  app.post('/api/materials/:id/archive', async (req) =>
+    c.catalog.archiveMaterial((req.params as { id: string }).id),
   );
 
   // ---- products ----

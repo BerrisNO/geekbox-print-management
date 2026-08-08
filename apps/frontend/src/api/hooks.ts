@@ -12,6 +12,7 @@ import type {
   LedgerEntry,
   LowStockAlert,
   Manufacturer,
+  MaterialDef,
   Part,
   Printer,
   PrintJobDetail,
@@ -134,6 +135,44 @@ export function useArchiveManufacturer() {
   return useMutation({
     mutationFn: (id: string) => api.post<Manufacturer>(`/manufacturers/${id}/archive`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['manufacturers'] }),
+  });
+}
+
+/* ------------------------------ materials ----------------------------- */
+export function useMaterials(includeArchived = false) {
+  return useQuery({
+    queryKey: queryKeys.materials.all(includeArchived),
+    queryFn: () => api.get<MaterialDef[]>('/materials', { query: { includeArchived } }),
+  });
+}
+
+export function useCreateMaterial() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => api.post<MaterialDef>('/materials', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['materials'] }),
+  });
+}
+
+export function useUpdateMaterial(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => api.patch<MaterialDef>(`/materials/${id}`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['materials'] });
+      // Renames cascade into product/spool display names.
+      qc.invalidateQueries({ queryKey: ['products'] });
+      qc.invalidateQueries({ queryKey: ['spools'] });
+      qc.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}
+
+export function useArchiveMaterial() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<MaterialDef>(`/materials/${id}/archive`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['materials'] }),
   });
 }
 

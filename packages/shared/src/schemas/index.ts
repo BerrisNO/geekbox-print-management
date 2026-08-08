@@ -2,7 +2,6 @@ import { z } from 'zod';
 import {
   DIAMETERS_MM,
   JOB_OUTCOMES,
-  MATERIALS,
   SPOOL_STATUSES,
   SPOOL_TYPES,
   WORK_ORDER_STATUSES,
@@ -17,7 +16,9 @@ import {
  * types from the OpenAPI contract.
  */
 
-export const materialSchema = z.enum(MATERIALS);
+// Material is a name from the user-editable material catalog; existence is
+// validated server-side against the `material` table (open string here).
+export const materialSchema = z.string().trim().min(1).max(40);
 export const spoolStatusSchema = z.enum(SPOOL_STATUSES);
 export const jobOutcomeSchema = z.enum(JOB_OUTCOMES);
 
@@ -64,6 +65,16 @@ export const manufacturerInputSchema = z.object({
   notes: z.string().optional(),
 });
 export type ManufacturerInput = z.infer<typeof manufacturerInputSchema>;
+
+// ---- materials ----
+// User-editable material catalog (PLA, PETG, …). Density is used as the default
+// for new products of this material; omitted density falls back server-side.
+export const materialInputSchema = z.object({
+  name: materialSchema,
+  densityGCm3: z.number().positive().optional(),
+  notes: z.string().optional(),
+});
+export type MaterialInput = z.infer<typeof materialInputSchema>;
 
 // ---- products ----
 export const productInputSchema = z.object({

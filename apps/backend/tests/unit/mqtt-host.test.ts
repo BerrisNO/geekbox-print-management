@@ -9,7 +9,9 @@ import { resolveBrokerHost } from '../../src/integration/bambu/mqtt-adapter.js';
 describe('resolveBrokerHost (MR-001 SSRF allow-list)', () => {
   it('maps known short region codes to the Bambu MQTT domain', () => {
     expect(resolveBrokerHost('us')).toBe('us.mqtt.bambulab.com');
-    expect(resolveBrokerHost('eu')).toBe('eu.mqtt.bambulab.com');
+    // There is no eu.mqtt.bambulab.com — legacy `eu` is aliased to the global
+    // `us` cluster (see MQTT_REGIONS in @geekbox/shared constants).
+    expect(resolveBrokerHost('eu')).toBe('us.mqtt.bambulab.com');
     expect(resolveBrokerHost('cn')).toBe('cn.mqtt.bambulab.com');
   });
 
