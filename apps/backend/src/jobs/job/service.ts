@@ -8,7 +8,7 @@ import type {
   PrintJob,
   PrintJobDetail,
 } from '@geekbox/shared';
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, isNull, lte } from 'drizzle-orm';
 import type { EventBus } from '../../bus/event-bus.js';
 import type { Db } from '../../db/client.js';
 import { printer } from '../../db/schema/integration.js';
@@ -337,6 +337,109 @@ export class JobService {
   }
 
   /**
+   * A print started (telemetry transition). Opens a provisional telemetry job so
+   * the list shows the print immediately — the Bambu cloud task list lags and can
+   * omit the newest task for a long while. Task sync later adopts this row via
+   * the merge window and enriches it with cover/filament/outcome.
+   */
+  telemetryPrintStarted(printerId: string, taskName: string | null, atMs: number): void {
+    const open = this.openTelemetryJob(printerId);
+    if (open) {
+      if ((taskName ?? '') === open.jobName) return; // already tracking this print
+      // A different print started while one was open (missed finish) — close the
+      // stale one as unknown before opening the new job.
+      this.db
+        .update(printJob)
+        .set({ endedAt: atMs, updatedAt: nowMs() })
+        .where(eq(printJob.id, open.id))
+        .run();
+    }
+    const id = newId();
+    const now = nowMs();
+    this.db
+      .insert(printJob)
+      .values({
+        id,
+        source: 'telemetry',
+        bambuTaskId: null,
+        printerId,
+        jobName: taskName ?? '',
+        startedAt: atMs,
+        endedAt: null,
+        durationMin: null,
+        outcome: 'unknown',
+        usageStatus: 'unknown',
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    this.bus.publish({ type: 'PrintJobObserved', jobId: id, kind: 'created' });
+  }
+
+  /**
+   * A print left the printing state (telemetry transition). Closes the open
+   * telemetry job with a best-effort outcome: error → failed; idle at ~100% →
+   * success; idle below that → cancelled. If no open job exists (started before
+   * boot), a closed telemetry job is created so the print still shows up.
+   */
+  telemetryPrintFinished(
+    printerId: string,
+    endState: 'idle' | 'error',
+    progressPct: number | null,
+    atMs: number,
+  ): void {
+    const outcome: JobOutcome =
+      endState === 'error' ? 'failed' : (progressPct ?? 0) >= 99 ? 'success' : 'cancelled';
+    const open = this.openTelemetryJob(printerId);
+    if (open) {
+      const durationMin = open.startedAt != null ? (atMs - open.startedAt) / 60_000 : null;
+      this.db
+        .update(printJob)
+        .set({ endedAt: atMs, durationMin, outcome, updatedAt: nowMs() })
+        .where(eq(printJob.id, open.id))
+        .run();
+      this.costing.recalculate(open.id);
+      this.bus.publish({ type: 'PrintJobObserved', jobId: open.id, kind: 'merged' });
+      return;
+    }
+    const id = newId();
+    const now = nowMs();
+    this.db
+      .insert(printJob)
+      .values({
+        id,
+        source: 'telemetry',
+        bambuTaskId: null,
+        printerId,
+        jobName: '',
+        startedAt: null,
+        endedAt: atMs,
+        durationMin: null,
+        outcome,
+        usageStatus: 'unknown',
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    this.bus.publish({ type: 'PrintJobObserved', jobId: id, kind: 'created' });
+  }
+
+  /** The printer's currently-open telemetry job (no end time), if any. */
+  private openTelemetryJob(printerId: string): typeof printJob.$inferSelect | undefined {
+    return this.db
+      .select()
+      .from(printJob)
+      .where(
+        and(
+          eq(printJob.printerId, printerId),
+          eq(printJob.source, 'telemetry'),
+          isNull(printJob.endedAt),
+        ),
+      )
+      .get();
+  }
+
+  /**
    * Resolve the spool a task slot should map to: exact slotRef match, or — for the
    * "reported" fallback (no per-slot detail from Bambu) — the printer's single
    * mapping when exactly one exists (single-spool printers without an AMS).
@@ -390,21 +493,31 @@ export class JobService {
     printerId: string | null,
     coverPatch: (currentUrl: string | null) => Record<string, unknown>,
   ): { jobId: string; created: boolean } {
-    // Try to adopt a recent telemetry-only job in the ±10min window.
-    if (printerId && task.startedAt) {
+    // Try to adopt a telemetry-observed job: match by start time (±10min), or —
+    // for jobs whose start was missed (boot mid-print) — by end time (±10min).
+    if (printerId) {
       const windowMs = 10 * 60 * 1000;
-      const candidate = this.db
-        .select()
-        .from(printJob)
-        .where(
-          and(
-            eq(printJob.printerId, printerId),
-            eq(printJob.source, 'telemetry'),
-            gte(printJob.startedAt, task.startedAt - windowMs),
-            lte(printJob.startedAt, task.startedAt + windowMs),
-          ),
-        )
-        .get();
+      const telemetryOn = (
+        col: typeof printJob.startedAt | typeof printJob.endedAt,
+        center: number,
+      ) =>
+        this.db
+          .select()
+          .from(printJob)
+          .where(
+            and(
+              eq(printJob.printerId, printerId),
+              eq(printJob.source, 'telemetry'),
+              gte(col, center - windowMs),
+              lte(col, center + windowMs),
+            ),
+          )
+          .get();
+      let candidate =
+        task.startedAt != null ? telemetryOn(printJob.startedAt, task.startedAt) : undefined;
+      if (!candidate && task.endedAt != null) {
+        candidate = telemetryOn(printJob.endedAt, task.endedAt);
+      }
       if (candidate && candidate.bambuTaskId == null) {
         this.db
           .update(printJob)
@@ -412,6 +525,10 @@ export class JobService {
             bambuTaskId: task.bambuTaskId,
             jobName: task.jobName ?? candidate.jobName,
             outcome: task.outcome ?? candidate.outcome,
+            // Cloud times are authoritative once the task record exists.
+            ...(task.startedAt != null ? { startedAt: task.startedAt } : {}),
+            ...(task.endedAt != null ? { endedAt: task.endedAt } : {}),
+            ...(task.durationMin != null ? { durationMin: task.durationMin } : {}),
             ...(task.totalWeightG != null ? { totalWeightG: task.totalWeightG } : {}),
             ...(task.totalLengthMm != null ? { totalLengthMm: task.totalLengthMm } : {}),
             ...(task.bedType ? { bedType: task.bedType } : {}),

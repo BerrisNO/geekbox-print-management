@@ -53,8 +53,16 @@ export type DomainEvent =
       nextRetryAt: string | null;
     }
   | { type: 'PrintJobObserved'; jobId: string; kind: 'created' | 'merged' }
+  /** Telemetry saw a print begin (enter the printing state). */
+  | { type: 'PrintStartedObserved'; printerId: string; taskName: string | null; atMs: number }
   /** Telemetry saw a print leave the printing state (finish/fail/cancel). */
-  | { type: 'PrintFinishedObserved'; printerId: string };
+  | {
+      type: 'PrintFinishedObserved';
+      printerId: string;
+      atMs: number;
+      endState: 'idle' | 'error';
+      progressPct: number | null;
+    };
 
 export type EventType = DomainEvent['type'];
 type Handler = (event: DomainEvent) => void;

@@ -188,4 +188,84 @@ describe('JobService.upsertFromTask — cover + filament usages', () => {
     expect(rep.spoolId).toBe(spool.id);
     expect(rep.ledgerEntryId).not.toBeNull();
   });
+
+  it('telemetry lifecycle: start opens a job, finish closes it, sync adopts it', () => {
+    db.insert(printer)
+      .values({ id: 'prn1', serial: 'SER1', name: 'X1C', registration: 'manual' })
+      .run();
+    const start = Date.now();
+
+    // Print starts → provisional job visible immediately.
+    jobs.telemetryPrintStarted('prn1', 'benchy.3mf', start);
+    let rows = db.select().from(printJob).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      source: 'telemetry',
+      jobName: 'benchy.3mf',
+      startedAt: start,
+      endedAt: null,
+      outcome: 'unknown',
+    });
+
+    // Duplicate start report for the same task is a no-op.
+    jobs.telemetryPrintStarted('prn1', 'benchy.3mf', start + 5_000);
+    expect(db.select().from(printJob).all()).toHaveLength(1);
+
+    // Finish at ~100% → success + duration.
+    const end = start + 90 * 60_000;
+    jobs.telemetryPrintFinished('prn1', 'idle', 100, end);
+    const closed = db.select().from(printJob).all()[0]!;
+    expect(closed.outcome).toBe('success');
+    expect(closed.endedAt).toBe(end);
+    expect(closed.durationMin).toBeCloseTo(90, 5);
+
+    // Cloud task arrives later → adopted (no duplicate), enriched, times authoritative.
+    const res = jobs.upsertFromTask({
+      bambuTaskId: 'T-tele',
+      printerSerial: 'SER1',
+      jobName: 'Benchy',
+      outcome: 'success',
+      startedAt: start + 60_000, // within the ±10min window
+      endedAt: end + 30_000,
+      totalWeightG: 24.5,
+      usages: [{ slotRef: '0:1', filamentType: 'PLA', weightG: 24.5 }],
+    });
+    expect(res.created).toBe(false);
+    rows = db.select().from(printJob).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      bambuTaskId: 'T-tele',
+      jobName: 'Benchy',
+      startedAt: start + 60_000,
+      endedAt: end + 30_000,
+      totalWeightG: 24.5,
+    });
+  });
+
+  it('telemetry finish without an observed start still records the job and adopts by end time', () => {
+    db.insert(printer)
+      .values({ id: 'prn1', serial: 'SER1', name: 'X1C', registration: 'manual' })
+      .run();
+    const end = Date.now();
+
+    // Boot happened mid-print: only the finish transition is seen (cancelled at 40%).
+    jobs.telemetryPrintFinished('prn1', 'idle', 40, end);
+    let rows = db.select().from(printJob).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ source: 'telemetry', startedAt: null, outcome: 'cancelled' });
+
+    // Cloud task adopts via the end-time window despite the missing start time.
+    const res = jobs.upsertFromTask({
+      bambuTaskId: 'T-late',
+      printerSerial: 'SER1',
+      jobName: 'Late',
+      outcome: 'cancelled',
+      startedAt: end - 60 * 60_000,
+      endedAt: end + 2 * 60_000,
+    });
+    expect(res.created).toBe(false);
+    rows = db.select().from(printJob).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.bambuTaskId).toBe('T-late');
+  });
 });

@@ -206,17 +206,32 @@ export class TelemetrySupervisor {
       snapshot: { ...merged, printerId: p.id },
     });
 
-    // Print-finished detection: the printer left 'printing' (FINISH→idle, FAILED→
-    // error, cancel→idle). Publishing lets task sync run promptly instead of the
-    // job waiting for the 30-min scheduler (the "last job missing" gap).
+    // Print lifecycle detection. The Bambu cloud task list lags behind reality
+    // (the newest task can be absent for a long while), so telemetry transitions
+    // are the authoritative "a print started/finished" signal: they open/close a
+    // provisional telemetry job immediately and trigger a prompt sync burst that
+    // later adopts the cloud record.
     const prevState = existing?.printerState as TelemetrySnapshot['printerState'] | undefined;
-    if (
-      prevState === 'printing' &&
-      merged.printerState !== 'printing' &&
-      merged.printerState !== 'paused' &&
-      merged.printerState !== 'unknown'
-    ) {
-      this.bus.publish({ type: 'PrintFinishedObserved', printerId: p.id });
+    const wasActive = prevState === 'printing' || prevState === 'paused';
+    if (!wasActive && merged.printerState === 'printing') {
+      this.bus.publish({
+        type: 'PrintStartedObserved',
+        printerId: p.id,
+        taskName: merged.taskName,
+        atMs: capturedAt,
+      });
+    }
+    // Note: 'offline' is deliberately NOT a finish state — a connectivity blip
+    // mid-print must not close the job. A print that ends while offline is
+    // healed later by the task-sync adopt path.
+    if (wasActive && (merged.printerState === 'idle' || merged.printerState === 'error')) {
+      this.bus.publish({
+        type: 'PrintFinishedObserved',
+        printerId: p.id,
+        atMs: capturedAt,
+        endState: merged.printerState === 'error' ? 'error' : 'idle',
+        progressPct: merged.progressPct,
+      });
     }
   }
 

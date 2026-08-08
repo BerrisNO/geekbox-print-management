@@ -74,7 +74,7 @@ export class TaskSyncService {
    * retries — the Bambu cloud can lag a minute or two before the finished task
    * shows up in /my/tasks. Replaces any pending finish burst (idempotent syncs).
    */
-  scheduleFinishSyncs(delaysMs: number[] = [20_000, 2 * 60_000, 8 * 60_000]): void {
+  scheduleFinishSyncs(delaysMs: number[] = [20_000, 2 * 60_000, 8 * 60_000, 20 * 60_000]): void {
     for (const t of this.finishTimers) clearTimeout(t);
     this.finishTimers = delaysMs.map((delay) =>
       setTimeout(() => {

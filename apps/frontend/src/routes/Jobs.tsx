@@ -79,7 +79,14 @@ export function JobsPage() {
       {
         accessorKey: 'outcome',
         header: 'Outcome',
-        cell: (c) => <JobOutcomePill outcome={c.row.original.outcome} />,
+        cell: (c) => {
+          const j = c.row.original;
+          // An open telemetry job is a print in progress, not an unknown outcome.
+          if (j.source === 'telemetry' && !j.endedAt) {
+            return <Badge variant="info">printing…</Badge>;
+          }
+          return <JobOutcomePill outcome={j.outcome} />;
+        },
       },
       {
         id: 'filament',

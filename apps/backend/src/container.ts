@@ -92,10 +92,26 @@ export function buildContainer(config: AppConfig, db: Db): Container {
   });
   const taskSync = new TaskSyncService(db, integration, jobs, coverCache);
 
-  // A finished print (telemetry) triggers a prompt task-sync burst so the job
-  // lands in the list right away instead of waiting for the 30-min scheduler.
+  // Telemetry print lifecycle → provisional jobs + prompt sync. The cloud task
+  // list lags reality (the newest task can be absent for a long while), so the
+  // telemetry transitions open/close a job immediately; the sync burst later
+  // adopts and enriches it with the cloud record (cover, filament, times).
   bus.subscribe((e) => {
-    if (e.type === 'PrintFinishedObserved') taskSync.scheduleFinishSyncs();
+    if (e.type === 'PrintStartedObserved') {
+      try {
+        jobs.telemetryPrintStarted(e.printerId, e.taskName, e.atMs);
+      } catch {
+        /* provisional job creation must never break telemetry ingest */
+      }
+    }
+    if (e.type === 'PrintFinishedObserved') {
+      try {
+        jobs.telemetryPrintFinished(e.printerId, e.endState, e.progressPct, e.atMs);
+      } catch {
+        /* ditto */
+      }
+      taskSync.scheduleFinishSyncs();
+    }
   });
 
   // Alert evaluator subscribes to stock changes → emits low-stock SSE.

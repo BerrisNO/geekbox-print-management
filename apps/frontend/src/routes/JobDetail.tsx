@@ -75,7 +75,11 @@ function JobInfoCard({ data }: { data: PrintJobDetail }) {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <JobOutcomePill outcome={data.outcome} />
+        {data.source === 'telemetry' && !data.endedAt ? (
+          <Badge variant="info">printing…</Badge>
+        ) : (
+          <JobOutcomePill outcome={data.outcome} />
+        )}
         <div className="flex items-center gap-2">
           {data.bambuTaskId ? (
             <span className="font-mono text-xs text-muted-foreground">#{data.bambuTaskId}</span>
