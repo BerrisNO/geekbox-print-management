@@ -27,11 +27,16 @@ export class Normalizer {
     return this.driftCounter;
   }
 
-  private noteMissing(field: string): void {
-    if (!this.loggedFields.has(field)) {
-      this.loggedFields.add(field);
-      this.logOnce(`Bambu payload missing/unknown field: ${field}`);
+  /** Log a distinct observation once per session (dedupe key = full message). */
+  private noteOnce(msg: string): void {
+    if (!this.loggedFields.has(msg)) {
+      this.loggedFields.add(msg);
+      this.logOnce(msg);
     }
+  }
+
+  private noteMissing(field: string): void {
+    this.noteOnce(`Bambu payload missing/unknown field: ${field}`);
   }
 
   /** Normalize a device-bind response into internal PrinterDescriptors. Never throws. */
@@ -67,6 +72,11 @@ export class Normalizer {
         const started = t.startTime ? Date.parse(t.startTime) : undefined;
         const ended = t.endTime ? Date.parse(t.endTime) : undefined;
         const usages = normalizeTaskUsages(t.amsDetailMapping, t.weight);
+        const outcome = mapTaskStatus(t.status);
+        // Ground-truth capture: the status enum is community-documented and has
+        // already drifted once (real success code differed). Log each distinct
+        // raw value with its mapping so server logs settle any future dispute.
+        this.noteOnce(`Bambu task status observed: ${String(t.status)} → ${outcome}`);
         return {
           bambuTaskId: String(t.id),
           printerSerial: t.deviceId ?? undefined,
@@ -74,7 +84,7 @@ export class Normalizer {
           startedAt: Number.isFinite(started) ? started : undefined,
           endedAt: Number.isFinite(ended) ? ended : undefined,
           durationMin: t.costTime != null ? t.costTime / 60 : undefined,
-          outcome: mapTaskStatus(t.status),
+          outcome,
           coverUrl: t.cover ?? undefined,
           totalWeightG: t.weight ?? undefined,
           totalLengthMm: t.length ?? undefined,
@@ -154,10 +164,16 @@ function mapGcodeState(state: string | null | undefined): PrinterState {
   }
 }
 
+/**
+ * Task status → outcome. The enum is community-documented and drifted in the
+ * wild: live accounts report completed prints as 2 (the documented 4 was never
+ * observed but is kept). Distinct raw values are logged at the call site so the
+ * server log shows ground truth if this drifts again.
+ */
 function mapTaskStatus(status: string | number | null | undefined): TaskRecord['outcome'] {
   if (status == null) return 'unknown';
   const s = String(status).toUpperCase();
-  if (s === '4' || s === 'SUCCESS' || s === 'FINISH') return 'success';
+  if (s === '2' || s === '4' || s === 'SUCCESS' || s === 'FINISH') return 'success';
   if (s === '3' || s === 'FAILED') return 'failed';
   if (s === 'CANCELLED' || s === 'CANCELED') return 'cancelled';
   return 'unknown';

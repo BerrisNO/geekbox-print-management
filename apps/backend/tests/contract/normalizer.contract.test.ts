@@ -37,6 +37,12 @@ describe('Normalizer — Bambu ACL boundary (MS-1 fixtures)', () => {
     expect(tasks[1]!.outcome).toBe('failed'); // status 3
   });
 
+  it('maps the live-observed status 2 to success (enum drift vs community docs)', () => {
+    const n = new Normalizer();
+    const tasks = n.normalizeTasks({ hits: [{ id: 1, status: 2 }] });
+    expect(tasks[0]!.outcome).toBe('success');
+  });
+
   it('captures cover, weight, and per-slot filament usages from a task', () => {
     const n = new Normalizer();
     const [benchy, bracket] = n.normalizeTasks(fixture('tasks.json'));
