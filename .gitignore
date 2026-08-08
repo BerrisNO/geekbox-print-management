@@ -13,3 +13,8 @@ sbom.json
 /data/
 .claude/
 /screenshot.png
+
+# Local reference screenshots + Playwright session artifacts
+.playwright-mcp/
+screenshot.png
+fillament management from bambulab.png

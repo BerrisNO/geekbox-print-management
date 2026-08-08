@@ -1,25 +1,8 @@
-import type { Spool } from '@geekbox/shared';
+import type { Spool, SpoolType } from '@geekbox/shared';
 import { QRCodeSVG } from 'qrcode.react';
+import { useId } from 'react';
 
 const SWATCH_FALLBACK = '#e5e7eb';
-
-/**
- * Pick a readable foreground (#000 / #fff) for text drawn on top of `hex`,
- * based on relative luminance. Falls back to black when hex is null/invalid.
- */
-export function readableOn(hex: string | null): '#000' | '#fff' {
-  if (!hex) return '#000';
-  const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(hex.trim());
-  if (!m?.[1]) return '#000';
-  const short = m[1];
-  const h = short.length === 3 ? short.replace(/./g, (c) => c + c) : short;
-  const r = Number.parseInt(h.slice(0, 2), 16) / 255;
-  const g = Number.parseInt(h.slice(2, 4), 16) / 255;
-  const b = Number.parseInt(h.slice(4, 6), 16) / 255;
-  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-  return luminance > 0.5 ? '#000' : '#fff';
-}
 
 /** Weight in grams → "1 kg" / "1.25 kg" / "750 g". */
 function formatWeightKg(g: number): string {
@@ -27,29 +10,118 @@ function formatWeightKg(g: number): string {
   return `${g} g`;
 }
 
+/** Arc caption over the color dot — mirrors Bambu's "With Spool" wording. */
+const SPOOL_TYPE_ARC: Record<SpoolType, string> = {
+  plastic: 'With Spool',
+  cardboard: 'Cardboard',
+  refill: 'Refill',
+  reusable: 'Masterspool',
+};
+
+/** ISO date → compact yyyy-mm-dd for the spec table. */
+function shortDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toISOString().slice(0, 10);
+}
+
 /**
- * Bambu-inspired printable spool label, fixed at 70mm x 40mm. Display-only:
- * a color swatch (left), key product/weight info (right) and a QR code
- * linking back to the spool-detail page.
+ * Color dot with curved captions (spool type above, color name below),
+ * modeled on the Bambu Lab box label. Pure SVG so the text follows the arcs.
+ */
+function ColorDot({
+  hex,
+  colorName,
+  spoolType,
+}: {
+  hex: string | null;
+  colorName: string;
+  spoolType: SpoolType;
+}) {
+  const uid = useId();
+  const topArc = `arc-top-${uid}`;
+  const bottomArc = `arc-bot-${uid}`;
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      style={{ width: '16mm', height: '16mm', flexShrink: 0 }}
+      role="img"
+      aria-label={`${colorName} (${SPOOL_TYPE_ARC[spoolType]})`}
+    >
+      <defs>
+        {/* Left→right over the top = readable "frown" arc. */}
+        <path id={topArc} d="M 13,50 A 37,37 0 0 1 87,50" fill="none" />
+        {/* Left→right under the bottom = readable "smile" arc. */}
+        <path id={bottomArc} d="M 14,50 A 36,36 0 0 0 86,50" fill="none" />
+      </defs>
+      <circle cx="50" cy="50" r="27" fill={hex ?? SWATCH_FALLBACK} stroke="#000" strokeWidth="1" />
+      <text fontSize="12.5" fontWeight="600" fill="#000" fontFamily="ui-sans-serif, system-ui">
+        <textPath href={`#${topArc}`} startOffset="50%" textAnchor="middle">
+          {SPOOL_TYPE_ARC[spoolType]}
+        </textPath>
+      </text>
+      <text fontSize="12.5" fontWeight="600" fill="#000" fontFamily="ui-sans-serif, system-ui">
+        <textPath href={`#${bottomArc}`} startOffset="50%" textAnchor="middle">
+          {colorName}
+        </textPath>
+      </text>
+    </svg>
+  );
+}
+
+/** One hairline spec row: label left, value right — like the Bambu spec table. */
+function SpecRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '2mm',
+        borderBottom: last ? 'none' : '0.15mm solid #ccc',
+        padding: '0 0.5mm',
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
+      <span style={{ fontSize: '2.1mm', whiteSpace: 'nowrap' }}>{label}</span>
+      <span
+        style={{
+          fontSize: '2.1mm',
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Printable spool label styled after the Bambu Lab box label, fixed at
+ * 85mm x 20mm: brand + material block (left), hairline spec table (middle),
+ * QR to the spool page, and a color dot with curved captions (right).
  */
 export function SpoolLabel({ spool }: { spool: Spool }) {
   const { product } = spool;
-  const swatch = product.colorHex ?? SWATCH_FALLBACK;
-  const swatchText = readableOn(product.colorHex);
-  const heading = product.category ?? product.material;
-  const showBaseMaterial = product.category !== null && product.category !== product.material;
-  const weightKg = formatWeightKg(spool.initialNetWeightG);
+  const series = product.name ?? product.category;
   const detailUrl = `${window.location.origin}/inventory/spools/${spool.id}`;
 
   return (
     <div
       style={{
-        width: '70mm',
-        height: '40mm',
+        width: '85mm',
+        height: '20mm',
         display: 'flex',
+        alignItems: 'center',
+        gap: '2mm',
         boxSizing: 'border-box',
-        border: '1px solid #000',
-        borderRadius: '2mm',
+        border: '0.3mm solid #000',
+        borderRadius: '1.5mm',
+        padding: '1.2mm 2mm',
         overflow: 'hidden',
         background: '#fff',
         color: '#000',
@@ -57,94 +129,93 @@ export function SpoolLabel({ spool }: { spool: Spool }) {
         breakInside: 'avoid',
       }}
     >
-      {/* Color swatch (~40% width) */}
+      {/* Brand + material block */}
       <div
         style={{
-          width: '40%',
           display: 'flex',
-          alignItems: 'flex-end',
-          padding: '2mm',
-          background: swatch,
-          color: swatchText,
-        }}
-      >
-        <span
-          style={{
-            fontSize: '3.2mm',
-            fontWeight: 700,
-            lineHeight: 1.1,
-            wordBreak: 'break-word',
-          }}
-        >
-          {product.colorName}
-        </span>
-      </div>
-
-      {/* Info panel */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          padding: '2mm',
+          alignItems: 'center',
+          gap: '1.4mm',
+          width: '21.5mm',
+          flexShrink: 0,
           minWidth: 0,
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          {product.manufacturer ? (
-            <div
+        {product.manufacturer ? (
+          <>
+            <span
               style={{
-                fontSize: '2.6mm',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.2mm',
+                fontSize: '2.8mm',
+                fontWeight: 800,
+                lineHeight: 1.05,
+                overflowWrap: 'break-word',
+                minWidth: 0,
+                maxWidth: '12mm',
+              }}
+            >
+              {product.manufacturer}
+            </span>
+            <span
+              style={{
+                alignSelf: 'stretch',
+                width: '0.2mm',
+                margin: '1mm 0',
+                background: '#000',
+                flexShrink: 0,
+              }}
+            />
+          </>
+        ) : null}
+        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <span style={{ fontSize: '4.2mm', fontWeight: 800, lineHeight: 1 }}>
+            {product.material}
+          </span>
+          {series ? (
+            <span
+              style={{
+                fontSize: '2.4mm',
+                lineHeight: 1.2,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
               }}
             >
-              {product.manufacturer}
-            </div>
+              {series}
+            </span>
           ) : null}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              gap: '1mm',
-              fontSize: '5mm',
-              fontWeight: 800,
-              lineHeight: 1,
-            }}
-          >
-            <span>{heading}</span>
-            {showBaseMaterial ? (
-              <span style={{ fontSize: '2.8mm', fontWeight: 600, opacity: 0.7 }}>
-                {product.material}
-              </span>
-            ) : null}
-          </div>
-          <div style={{ fontSize: '2.8mm', marginTop: '0.5mm' }}>{product.colorName}</div>
-          <div style={{ fontSize: '2.8mm', fontWeight: 600 }}>
-            {weightKg} · {product.diameterMm} mm
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-          <span
-            style={{
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              fontSize: '2.4mm',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {spool.label}
-          </span>
-          <QRCodeSVG value={detailUrl} size={72} level="M" marginSize={0} />
-        </div>
+        </span>
       </div>
+
+      {/* Spec table */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignSelf: 'stretch',
+          minWidth: 0,
+          padding: '0.6mm 0',
+        }}
+      >
+        <SpecRow label="Diameter" value={`${product.diameterMm} mm`} />
+        <SpecRow label="Net Weight" value={formatWeightKg(spool.initialNetWeightG)} />
+        <SpecRow label="Spool ID" value={spool.label} />
+        <SpecRow label="Acquired" value={shortDate(spool.acquiredAt)} last />
+      </div>
+
+      {/* QR to the spool page */}
+      <QRCodeSVG
+        value={detailUrl}
+        size={64}
+        level="M"
+        marginSize={0}
+        style={{ width: '12mm', height: '12mm', flexShrink: 0 }}
+      />
+
+      <ColorDot
+        hex={product.colorHex}
+        colorName={product.colorName}
+        spoolType={product.spoolType}
+      />
     </div>
   );
 }

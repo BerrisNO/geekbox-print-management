@@ -17,7 +17,7 @@ const PRINT_CSS = `
 /**
  * Chrome-less print page. Reads `ids` (comma-separated) + optional `copies`
  * from the search params, resolves the matching spools and lays them out as
- * printable 70x40mm labels that flow across A4 pages. Renders WITHOUT AppShell.
+ * printable 85x20mm labels that flow across A4 pages. Renders WITHOUT AppShell.
  */
 export function PrintLabelsPage() {
   const { ids, copies } = useSearch({ from: '/print/labels' });

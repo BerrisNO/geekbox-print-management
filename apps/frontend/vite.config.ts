@@ -34,7 +34,9 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true,
+        // NO changeOrigin: the backend's CSRF guard requires the forwarded Host
+        // to match the browser's Origin (both localhost:5173). changeOrigin
+        // rewrites Host to :8080 and 403s every state-changing dev request.
       },
     },
   },
