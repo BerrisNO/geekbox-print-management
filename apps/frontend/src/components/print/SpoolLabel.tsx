@@ -1,5 +1,4 @@
 import type { Spool, SpoolType } from '@geekbox/shared';
-import { QRCodeSVG } from 'qrcode.react';
 import { useId } from 'react';
 
 const SWATCH_FALLBACK = '#e5e7eb';
@@ -102,13 +101,12 @@ function SpecRow({ label, value, last }: { label: string; value: string; last?: 
 
 /**
  * Printable spool label styled after the Bambu Lab box label, fixed at
- * 85mm x 20mm: brand + material block (left), hairline spec table (middle),
- * QR to the spool page, and a color dot with curved captions (right).
+ * 85mm x 20mm: manufacturer + material block (left), hairline spec table
+ * (middle), and a color dot with curved captions (right).
  */
 export function SpoolLabel({ spool }: { spool: Spool }) {
   const { product } = spool;
   const series = product.name ?? product.category;
-  const detailUrl = `${window.location.origin}/inventory/spools/${spool.id}`;
 
   return (
     <div
@@ -129,60 +127,47 @@ export function SpoolLabel({ spool }: { spool: Spool }) {
         breakInside: 'avoid',
       }}
     >
-      {/* Brand + material block */}
+      {/* Manufacturer + material block (stacked) */}
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
-          gap: '1.4mm',
+          flexDirection: 'column',
+          justifyContent: 'center',
           width: '21.5mm',
           flexShrink: 0,
           minWidth: 0,
         }}
       >
         {product.manufacturer ? (
-          <>
-            <span
-              style={{
-                fontSize: '2.8mm',
-                fontWeight: 800,
-                lineHeight: 1.05,
-                overflowWrap: 'break-word',
-                minWidth: 0,
-                maxWidth: '12mm',
-              }}
-            >
-              {product.manufacturer}
-            </span>
-            <span
-              style={{
-                alignSelf: 'stretch',
-                width: '0.2mm',
-                margin: '1mm 0',
-                background: '#000',
-                flexShrink: 0,
-              }}
-            />
-          </>
-        ) : null}
-        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <span style={{ fontSize: '4.2mm', fontWeight: 800, lineHeight: 1 }}>
-            {product.material}
+          <span
+            style={{
+              fontSize: '2.4mm',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {product.manufacturer}
           </span>
-          {series ? (
-            <span
-              style={{
-                fontSize: '2.4mm',
-                lineHeight: 1.2,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {series}
-            </span>
-          ) : null}
+        ) : null}
+        <span style={{ fontSize: '4.2mm', fontWeight: 800, lineHeight: 1.1 }}>
+          {product.material}
         </span>
+        {series ? (
+          <span
+            style={{
+              fontSize: '2.4mm',
+              lineHeight: 1.2,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {series}
+          </span>
+        ) : null}
       </div>
 
       {/* Spec table */}
@@ -201,15 +186,6 @@ export function SpoolLabel({ spool }: { spool: Spool }) {
         <SpecRow label="Spool ID" value={spool.label} />
         <SpecRow label="Acquired" value={shortDate(spool.acquiredAt)} last />
       </div>
-
-      {/* QR to the spool page */}
-      <QRCodeSVG
-        value={detailUrl}
-        size={64}
-        level="M"
-        marginSize={0}
-        style={{ width: '12mm', height: '12mm', flexShrink: 0 }}
-      />
 
       <ColorDot
         hex={product.colorHex}
