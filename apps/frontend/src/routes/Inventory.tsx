@@ -88,9 +88,16 @@ export function InventoryPage() {
         accessorKey: 'remainingNetWeightG',
         header: 'Remaining',
         cell: (c) => (
-          <span className="font-mono">
-            {formatGrams(c.getValue<number>())} · {formatPct(c.row.original.remainingPct)}
-          </span>
+          <div className="flex flex-col">
+            <span className="font-mono">
+              {formatGrams(c.getValue<number>())} · {formatPct(c.row.original.remainingPct)}
+            </span>
+            {c.row.original.amsRemainingPct !== null ? (
+              <span className="font-mono text-xs text-muted-foreground">
+                AMS: {formatPct(c.row.original.amsRemainingPct)}
+              </span>
+            ) : null}
+          </div>
         ),
       },
       {

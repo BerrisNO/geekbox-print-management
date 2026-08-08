@@ -149,10 +149,18 @@ export interface Spool {
     vendorId: string;
     vendorName: string;
     diameterMm: number;
+    /** Full-spool net weight (g) — the base for AMS %→grams calibration. */
+    nominalNetWeightG: number;
   };
   initialNetWeightG: number;
   remainingNetWeightG: number;
   remainingPct: number;
+  /**
+   * Remaining % as reported live by the AMS for the mapped slot (Bambu RFID /
+   * user-configured estimate), null when unmapped or the AMS reports none.
+   * Observation only — the ledger stays the book of record.
+   */
+  amsRemainingPct: number | null;
   tareWeightG: number | null;
   purchasePriceMinor: number | null;
   valuationMinor: number;

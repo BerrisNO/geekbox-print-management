@@ -38,6 +38,7 @@ export function SpoolDetailPage() {
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [calibrateOpen, setCalibrateOpen] = useState(false);
 
   return (
     <>
@@ -75,6 +76,11 @@ export function SpoolDetailPage() {
               <SpoolStatusPill status={spool.data.status} />
             </div>
             <div className="flex gap-2">
+              {spool.data.amsRemainingPct !== null ? (
+                <Button size="sm" variant="outline" onClick={() => setCalibrateOpen(true)}>
+                  <Scale className="size-4" aria-hidden /> Calibrate from AMS
+                </Button>
+              ) : null}
               <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
                 <Pencil className="size-4" aria-hidden /> Edit details
               </Button>
@@ -90,6 +96,11 @@ export function SpoolDetailPage() {
             <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm md:grid-cols-4">
               <Field label="Remaining">
                 {formatGrams(spool.data.remainingNetWeightG)} · {formatPct(spool.data.remainingPct)}
+                {spool.data.amsRemainingPct !== null ? (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    AMS: {formatPct(spool.data.amsRemainingPct)}
+                  </span>
+                ) : null}
               </Field>
               <Field label="Initial">{formatGrams(spool.data.initialNetWeightG)}</Field>
               <Field label="Tare">
@@ -131,6 +142,9 @@ export function SpoolDetailPage() {
         </CardContent>
       </Card>
 
+      {calibrateOpen && spool.data ? (
+        <CalibrateFromAmsDialog spool={spool.data} onClose={() => setCalibrateOpen(false)} />
+      ) : null}
       {editOpen && spool.data ? (
         <EditDetailsDialog spool={spool.data} onClose={() => setEditOpen(false)} />
       ) : null}
@@ -153,6 +167,46 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="font-mono">{children}</dd>
     </div>
+  );
+}
+
+/**
+ * Set the ledger balance to the AMS-reported remaining % of the product's
+ * full-spool weight (posts a manual_adjustment via the existing adjust path —
+ * the AMS estimate never writes the book of record without this confirmation).
+ */
+function CalibrateFromAmsDialog({ spool, onClose }: { spool: Spool; onClose: () => void }) {
+  const adjust = useAdjustSpool(spool.id);
+  const pushToast = useUiStore((s) => s.pushToast);
+  const pct = spool.amsRemainingPct ?? 0;
+  const targetG = Math.round((pct / 100) * spool.product.nominalNetWeightG);
+
+  return (
+    <ConfirmDialog
+      open
+      onClose={onClose}
+      onConfirm={() =>
+        adjust.mutate(
+          {
+            netWeightG: targetG,
+            note: `Calibrated from AMS reading (${pct}% of ${spool.product.nominalNetWeightG} g)`,
+          },
+          {
+            onSuccess: onClose,
+            onError: (err) =>
+              pushToast({
+                variant: 'error',
+                title: 'Calibration failed',
+                description: err instanceof ApiError ? err.message : undefined,
+              }),
+          },
+        )
+      }
+      title="Calibrate from AMS?"
+      description={`The AMS reports ${formatPct(pct)} remaining ≈ ${formatGrams(targetG, 0)} (of a ${spool.product.nominalNetWeightG} g spool). The ledger currently says ${formatGrams(spool.remainingNetWeightG)}. This posts an adjustment entry setting the balance to the AMS estimate.`}
+      confirmLabel="Set to AMS estimate"
+      loading={adjust.isPending}
+    />
   );
 }
 

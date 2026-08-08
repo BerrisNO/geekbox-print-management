@@ -10,7 +10,7 @@ import type {
 import { SPOOL_TYPE_TARE_DEFAULTS_G } from '@geekbox/shared';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
-import { printer } from '../../db/schema/integration.js';
+import { printer, telemetrySnapshot } from '../../db/schema/integration.js';
 import {
   amsSlotMapping,
   filamentProduct,
@@ -206,6 +206,34 @@ export class SpoolService {
     return this.get(id);
   }
 
+  /**
+   * The AMS-reported remaining % for a mapped slot, read from the latest
+   * telemetry snapshot. Bambu reports this only for RFID/user-configured trays;
+   * -1/absent means unknown → null. Observation only, never written to the ledger.
+   */
+  private amsRemainingPct(printerId: string, unitIndex: number, slotIndex: number): number | null {
+    const snap = this.db
+      .select({ amsJson: telemetrySnapshot.amsJson })
+      .from(telemetrySnapshot)
+      .where(eq(telemetrySnapshot.printerId, printerId))
+      .get();
+    if (!snap?.amsJson) return null;
+    try {
+      const ams = JSON.parse(snap.amsJson) as {
+        units: Array<{
+          unitIndex: number;
+          slots: Array<{ slotIndex: number; remainingPct: number | null }>;
+        }>;
+      };
+      const pct = ams.units
+        .find((u) => u.unitIndex === unitIndex)
+        ?.slots.find((s) => s.slotIndex === slotIndex)?.remainingPct;
+      return pct != null && pct >= 0 && pct <= 100 ? pct : null;
+    } catch {
+      return null;
+    }
+  }
+
   private toSpool(r: typeof spool.$inferSelect): Spool {
     const product = this.db
       .select()
@@ -236,6 +264,7 @@ export class SpoolService {
       .where(eq(amsSlotMapping.spoolId, r.id))
       .get();
     let mappedTo: Spool['mappedTo'] = null;
+    let amsRemainingPct: number | null = null;
     if (mapping) {
       const p = this.db
         .select({ name: printer.name })
@@ -247,6 +276,11 @@ export class SpoolService {
         printerName: p?.name ?? '',
         slotRef: `${mapping.unitIndex}:${mapping.slotIndex}`,
       };
+      amsRemainingPct = this.amsRemainingPct(
+        mapping.printerId,
+        mapping.unitIndex,
+        mapping.slotIndex,
+      );
     }
     return {
       id: r.id,
@@ -263,11 +297,13 @@ export class SpoolService {
         vendorId: product?.vendorId ?? '',
         vendorName: v?.name ?? '',
         diameterMm: product?.diameterMm ?? 1.75,
+        nominalNetWeightG: product?.nominalNetWeightG ?? 1000,
       },
       initialNetWeightG: r.initialNetWeightG,
       remainingNetWeightG: r.remainingNetWeightG,
       remainingPct:
         r.initialNetWeightG > 0 ? (r.remainingNetWeightG / r.initialNetWeightG) * 100 : 0,
+      amsRemainingPct,
       tareWeightG: r.tareWeightG,
       purchasePriceMinor: r.purchasePriceMinor,
       valuationMinor: spoolValuationMinor(
