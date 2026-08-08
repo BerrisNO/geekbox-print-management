@@ -90,6 +90,8 @@ export const amsUnitSchema = z
   .object({
     id: z.union([z.string(), z.number()]).nullish(),
     tray: z.array(amsTraySchema).nullish(),
+    humidity: z.union([z.string(), z.number()]).nullish(), // level "1".."5" (1 = driest)
+    humidity_raw: z.union([z.string(), z.number()]).nullish(), // percent, newer firmware only
   })
   .passthrough();
 export const reportPrintSchema = z

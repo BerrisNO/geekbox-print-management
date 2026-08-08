@@ -118,6 +118,8 @@ export class Normalizer {
           version: 1 as const,
           units: print.ams.ams.map((u, unitIdx) => ({
             unitIndex: typeof u.id === 'number' ? u.id : unitIdx,
+            humidityLevel: toBoundedInt(u.humidity, 1, 5),
+            humidityPct: toBoundedInt(u.humidity_raw, 0, 100),
             slots: (u.tray ?? []).map((t, slotIdx) => ({
               slotIndex: typeof t.id === 'number' ? t.id : slotIdx,
               trayType: t.tray_type ?? null,
@@ -228,6 +230,22 @@ function amsIndexToSlotRef(ams: number | null | undefined): string | null {
   const unit = Math.floor(ams / 4);
   const slot = ams % 4;
   return `${unit}:${slot}`;
+}
+
+/**
+ * Coerce a string|number Bambu field to an integer within [min, max]; anything
+ * unparsable or out of range becomes null (tolerant-normalization rule).
+ */
+function toBoundedInt(
+  v: string | number | null | undefined,
+  min: number,
+  max: number,
+): number | null {
+  if (v == null) return null;
+  const n = typeof v === 'string' ? Number.parseFloat(v) : v;
+  if (!Number.isFinite(n)) return null;
+  const i = Math.round(n);
+  return i >= min && i <= max ? i : null;
 }
 
 /** Bambu tray colors are hex with alpha (e.g. "RRGGBBAA"). Reduce to #RRGGBB. */

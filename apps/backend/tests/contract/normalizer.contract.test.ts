@@ -89,6 +89,9 @@ describe('Normalizer — Bambu ACL boundary (MS-1 fixtures)', () => {
     expect(snap!.ams!.units[0]!.slots[1]!.trayColorHex).toBe('#FF0000');
     // empty tray observed as null
     expect(snap!.ams!.units[0]!.slots[3]!.trayType).toBeNull();
+    // humidity level "2" (string) → 2; raw percent absent on this firmware → null
+    expect(snap!.ams!.units[0]!.humidityLevel).toBe(2);
+    expect(snap!.ams!.units[0]!.humidityPct).toBeNull();
   });
 
   it('degrades gracefully on an idle report with missing fields', () => {

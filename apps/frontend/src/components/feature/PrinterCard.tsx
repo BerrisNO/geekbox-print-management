@@ -1,5 +1,5 @@
 import type { Printer, TelemetrySnapshot } from '@geekbox/shared';
-import { Layers, Thermometer, Timer } from 'lucide-react';
+import { Droplets, Layers, Thermometer, Timer } from 'lucide-react';
 import { useTelemetry } from '../../api/hooks';
 import { cn } from '../../lib/cn';
 import { formatDuration, formatPct } from '../../lib/format';
@@ -110,9 +110,37 @@ function PrinterBody({ snap, connected }: { snap: TelemetrySnapshot; connected: 
             {`${snap.chamberTempC.toFixed(0)}°C`}
           </Stat>
         ) : null}
+        {(snap.ams?.units ?? []).map((u) => {
+          const value = formatAmsHumidity(u);
+          if (!value) return null;
+          const multi = (snap.ams?.units.length ?? 0) > 1;
+          return (
+            <Stat
+              key={u.unitIndex}
+              icon={Droplets}
+              label={multi ? `AMS ${u.unitIndex} hum.` : 'Humidity'}
+            >
+              {value}
+            </Stat>
+          );
+        })}
       </dl>
     </div>
   );
+}
+
+/**
+ * AMS humidity for display: raw percent when the firmware reports it, else the
+ * 1–5 level (1 = driest) as "n/5". Null when the unit reports neither.
+ * Fields may be absent on snapshots stored before this feature — treat as null.
+ */
+export function formatAmsHumidity(u: {
+  humidityLevel?: number | null;
+  humidityPct?: number | null;
+}): string | null {
+  if (u.humidityPct != null) return `${u.humidityPct}%`;
+  if (u.humidityLevel != null) return `${u.humidityLevel}/5`;
+  return null;
 }
 
 function Stat({

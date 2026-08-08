@@ -432,6 +432,10 @@ export interface TrayObservation {
 
 export interface AmsUnit {
   unitIndex: number;
+  /** AMS humidity level 1–5 as shown on the unit (1 = driest), null when unreported. */
+  humidityLevel: number | null;
+  /** Raw humidity percent (newer AMS firmware only), null when unreported. */
+  humidityPct: number | null;
   slots: Array<{
     slotIndex: number;
     trayType: string | null;

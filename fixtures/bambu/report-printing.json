@@ -14,6 +14,7 @@
       "ams": [
         {
           "id": 0,
+          "humidity": "2",
           "tray": [
             { "id": 0, "tray_type": "PLA", "tray_color": "000000FF", "remain": 76 },
             { "id": 1, "tray_type": "PETG", "tray_color": "FF0000FF", "remain": 40 },

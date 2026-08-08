@@ -1,7 +1,14 @@
 import { EXTERNAL_SLOT_REF, type SlotView, type Spool } from '@geekbox/shared';
-import { AlertTriangle, Link2, Link2Off, PackageX } from 'lucide-react';
+import { AlertTriangle, Droplets, Link2, Link2Off, PackageX } from 'lucide-react';
 import { useState } from 'react';
-import { useConfirmMapping, useMapSlot, useSlots, useSpools, useUnmapSlot } from '../../api/hooks';
+import {
+  useConfirmMapping,
+  useMapSlot,
+  useSlots,
+  useSpools,
+  useTelemetry,
+  useUnmapSlot,
+} from '../../api/hooks';
 import { cn } from '../../lib/cn';
 import { formatGrams } from '../../lib/format';
 import { ProgressRing } from '../data/ProgressRing';
@@ -17,11 +24,25 @@ import { ErrorState, Skeleton } from '../ui/misc';
  *  the virtual external holder 254:0. Live spool data, verify flag, map/unmap. */
 export function AmsSlotPanel({ printerId }: { printerId: string }) {
   const slots = useSlots(printerId);
+  const telemetry = useTelemetry(printerId);
+  const humidUnits = (telemetry.data?.ams?.units ?? []).filter(
+    (u) => u.humidityLevel != null || u.humidityPct != null,
+  );
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
         <CardTitle className="text-base">AMS &amp; external spools</CardTitle>
+        {humidUnits.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {humidUnits.map((u) => (
+              <Badge key={u.unitIndex} variant={humidityVariant(u)} icon={Droplets}>
+                {humidUnits.length > 1 ? `AMS ${u.unitIndex} · ` : ''}
+                {u.humidityPct != null ? `${u.humidityPct}%` : `${u.humidityLevel}/5`}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
       </CardHeader>
       <CardContent>
         {slots.isLoading ? (
@@ -43,6 +64,25 @@ export function AmsSlotPanel({ printerId }: { printerId: string }) {
       </CardContent>
     </Card>
   );
+}
+
+/**
+ * Badge color by dryness: Bambu levels run 1 (driest) to 5 (wettest); raw
+ * percent thresholds mirror the level bands. Dry = green, middling = amber,
+ * wet = red (filament should be dried).
+ */
+function humidityVariant(u: {
+  humidityLevel: number | null;
+  humidityPct: number | null;
+}): 'success' | 'warning' | 'danger' {
+  if (u.humidityPct != null) {
+    if (u.humidityPct < 40) return 'success';
+    if (u.humidityPct < 60) return 'warning';
+    return 'danger';
+  }
+  if ((u.humidityLevel ?? 5) <= 2) return 'success';
+  if (u.humidityLevel === 3) return 'warning';
+  return 'danger';
 }
 
 function SlotTile({ printerId, slot }: { printerId: string; slot: SlotView }) {
