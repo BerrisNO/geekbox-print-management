@@ -49,11 +49,23 @@ function ColorDot({
     >
       <defs>
         {/* Left→right over the top = readable "frown" arc. */}
-        <path id={topArc} d="M 13,50 A 37,37 0 0 1 87,50" fill="none" />
-        {/* Left→right under the bottom = readable "smile" arc. */}
-        <path id={bottomArc} d="M 14,50 A 36,36 0 0 0 86,50" fill="none" />
+        <path id={topArc} d="M 11,50 A 39,39 0 0 1 89,50" fill="none" />
+        {/* Left→right under the bottom = readable "smile" arc — pushed out so
+            the color name clears the dotted ring. */}
+        <path id={bottomArc} d="M 7,50 A 43,43 0 0 0 93,50" fill="none" />
       </defs>
-      <circle cx="50" cy="50" r="27" fill={hex ?? SWATCH_FALLBACK} stroke="#000" strokeWidth="1" />
+      <circle cx="50" cy="50" r="25" fill={hex ?? SWATCH_FALLBACK} />
+      {/* Gray dotted ring around the color dot (~3px at label scale). */}
+      <circle
+        cx="50"
+        cy="50"
+        r="29.5"
+        fill="none"
+        stroke="#999"
+        strokeWidth="4.5"
+        strokeDasharray="0.1 8"
+        strokeLinecap="round"
+      />
       <text fontSize="12.5" fontWeight="600" fill="#000" fontFamily="ui-sans-serif, system-ui">
         <textPath href={`#${topArc}`} startOffset="50%" textAnchor="middle">
           {SPOOL_TYPE_ARC[spoolType]}
