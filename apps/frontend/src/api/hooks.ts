@@ -291,6 +291,8 @@ export function useUpdateSpool(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.spools.detail(id) });
       qc.invalidateQueries({ queryKey: ['spools'] });
+      // Purchase-price edits change valuation → refresh the stock summary too.
+      qc.invalidateQueries({ queryKey: ['inventory'] });
     },
   });
 }
