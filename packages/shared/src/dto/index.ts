@@ -459,6 +459,13 @@ export interface FilamentUsage {
   spoolLabel: string | null;
   usedG: number | null;
   usedMm: number | null;
+  /** Bambu-reported filament type for this slot (e.g. "PLA"), null for manual usages. */
+  trayType: string | null;
+  /** Bambu-reported loaded color as #RRGGBB, null when unknown. */
+  colorHex: string | null;
+  /** Spool currently mapped to this slot's printer (live suggestion), when unattributed. */
+  suggestedSpoolId: string | null;
+  suggestedSpoolLabel: string | null;
   estimated: boolean;
   attributed: boolean;
   ledgerEntryId: string | null;
@@ -504,6 +511,8 @@ export interface PrintJob {
   outcome: JobOutcome;
   usageStatus: UsageStatus;
   totalUsedG: number;
+  /** App-relative cover image URL (/api/jobs/{id}/cover) when cached, else null. */
+  coverUrl: string | null;
   cost: { totalCostMinor: number; incomplete: boolean } | null;
   /** The work-order line this job fulfills, or null when unassigned. */
   workOrderLineId: string | null;

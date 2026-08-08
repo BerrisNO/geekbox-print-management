@@ -1,3 +1,4 @@
+import { dirname, join } from 'node:path';
 import { z } from 'zod';
 
 /**
@@ -39,6 +40,8 @@ export type AppConfig = {
   nodeEnv: 'development' | 'production' | 'test';
   port: number;
   dbPath: string;
+  /** Directory for cached Bambu cover images, alongside the DB (e.g. /data/covers). */
+  coversDir: string;
   backupDir: string;
   logLevel: 'error' | 'warn' | 'info' | 'debug';
   mqttRegionOverride: string | undefined;
@@ -65,6 +68,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     nodeEnv: e.NODE_ENV,
     port: e.PORT,
     dbPath: e.DB_PATH,
+    coversDir: join(dirname(e.DB_PATH), 'covers'),
     backupDir: e.BACKUP_DIR,
     logLevel: e.LOG_LEVEL,
     mqttRegionOverride: e.MQTT_REGION,

@@ -10,7 +10,28 @@
       "startTime": "2026-08-01T10:00:00Z",
       "endTime": "2026-08-01T11:02:00Z",
       "costTime": 3720,
-      "status": 4
+      "status": 4,
+      "cover": "https://public.bambulab.com/covers/900000001.png",
+      "weight": 24.5,
+      "length": 8123.4,
+      "amsDetailMapping": [
+        {
+          "ams": 1,
+          "sourceColor": "FF0000FF",
+          "targetColor": "FF0000FF",
+          "filamentId": "GFA00",
+          "filamentType": "PLA",
+          "weight": 20.0
+        },
+        {
+          "ams": 254,
+          "sourceColor": "00FF00FF",
+          "targetColor": "00FF00FF",
+          "filamentId": "GFA01",
+          "filamentType": "PETG",
+          "weight": 4.5
+        }
+      ]
     },
     {
       "id": 900000002,
@@ -20,7 +41,8 @@
       "startTime": "2026-08-02T14:30:00Z",
       "endTime": "2026-08-02T15:10:00Z",
       "costTime": 2400,
-      "status": 3
+      "status": 3,
+      "weight": 12.0
     }
   ]
 }

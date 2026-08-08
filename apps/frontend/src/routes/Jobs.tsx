@@ -26,6 +26,23 @@ export function JobsPage() {
   const columns = useMemo<ColumnDef<PrintJob, unknown>[]>(
     () => [
       {
+        id: 'cover',
+        header: '',
+        cell: (c) => {
+          const url = c.row.original.coverUrl;
+          return url ? (
+            <img
+              src={url}
+              alt=""
+              loading="lazy"
+              className="size-10 rounded-md border border-border object-cover"
+            />
+          ) : (
+            <div className="size-10 rounded-md border border-dashed border-border bg-muted/40" />
+          );
+        },
+      },
+      {
         accessorKey: 'jobName',
         header: 'Job',
         cell: (c) => <span className="font-medium">{c.getValue<string>()}</span>,

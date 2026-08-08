@@ -39,6 +39,18 @@ export const bindResponseSchema = z
 export type RawBindResponse = z.infer<typeof bindResponseSchema>;
 
 // GET /v1/user-service/my/tasks — task history
+// Per-slot filament mapping used by a task. `ams` is a GLOBAL tray index
+// (0-15 across AMS units, 254 = external holder); weights are grams.
+export const amsDetailSchema = z
+  .object({
+    ams: z.number().nullish(),
+    sourceColor: z.string().nullish(),
+    targetColor: z.string().nullish(), // AABBGGRR or RRGGBBAA hex
+    filamentId: z.string().nullish(), // Bambu filament code, e.g. "GFA00"
+    filamentType: z.string().nullish(), // material, e.g. "PLA"
+    weight: z.number().nullish(), // grams used from this slot
+  })
+  .passthrough();
 export const taskSchema = z
   .object({
     id: z.union([z.string(), z.number()]).nullish(),
@@ -49,6 +61,10 @@ export const taskSchema = z
     endTime: z.string().nullish(),
     costTime: z.number().nullish(), // seconds
     status: z.union([z.string(), z.number()]).nullish(),
+    cover: z.string().nullish(), // signed image URL
+    weight: z.number().nullish(), // total grams
+    length: z.number().nullish(), // total mm
+    amsDetailMapping: z.array(amsDetailSchema).nullish(),
   })
   .passthrough();
 export const tasksResponseSchema = z

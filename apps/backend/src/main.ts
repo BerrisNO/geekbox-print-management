@@ -22,6 +22,9 @@ async function main(): Promise<void> {
   const container = buildContainer(config, db);
   container.log.info({ applied }, 'Migrations applied');
 
+  // Ensure the cover-image cache directory exists before serving/downloading.
+  await container.coverCache.ensureDir();
+
   const publicDir = join(__dirname, 'public');
   const app = await buildApp(container, { publicDir });
 

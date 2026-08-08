@@ -54,8 +54,15 @@ export function JobDetailPage() {
               <JobOutcomePill outcome={data.outcome} />
               <Badge>{data.source}</Badge>
             </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm md:grid-cols-3">
+            <CardContent className="flex flex-col gap-4 sm:flex-row">
+              {data.coverUrl ? (
+                <img
+                  src={data.coverUrl}
+                  alt={`${data.jobName} preview`}
+                  className="h-32 w-32 shrink-0 rounded-md border border-border object-cover"
+                />
+              ) : null}
+              <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-2 text-sm md:grid-cols-3">
                 <Field label="Printer">{orDash(data.printerName)}</Field>
                 <Field label="Started">{formatDateTime(data.startedAt)}</Field>
                 <Field label="Ended">{formatDateTime(data.endedAt)}</Field>
@@ -107,21 +114,53 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function UsageRow({ jobId, usage }: { jobId: string; usage: FilamentUsage }) {
   const [attrOpen, setAttrOpen] = useState(false);
+  const attribute = useAttributeUsage(jobId);
+  const pushToast = useUiStore((s) => s.pushToast);
+
+  const slotLabel = usage.slotRef === 'reported' ? 'reported' : `slot ${usage.slotRef}`;
+  const filamentDesc = [usage.trayType, usage.colorHex].filter(Boolean).join(' · ');
+
+  function attributeTo(spoolId: string) {
+    attribute.mutate(
+      { usageId: usage.id, spoolId },
+      {
+        onError: (err) =>
+          pushToast({
+            variant: 'error',
+            title: 'Attribution failed',
+            description: err instanceof ApiError ? err.message : undefined,
+          }),
+      },
+    );
+  }
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 text-sm">
-      <div className="flex flex-col">
-        <span className="font-mono text-xs text-muted-foreground">slot {usage.slotRef}</span>
-        <span className="font-mono">
-          {usage.usedG !== null
-            ? formatGrams(usage.usedG)
-            : usage.usedMm !== null
-              ? `${usage.usedMm} mm`
-              : '—'}
-          {usage.estimated ? <Badge className="ml-1">estimated</Badge> : null}
-        </span>
+      <div className="flex items-center gap-3">
+        {usage.colorHex ? (
+          <span
+            className="size-6 shrink-0 rounded-full border border-border"
+            style={{ backgroundColor: usage.colorHex }}
+            title={usage.colorHex}
+            aria-hidden
+          />
+        ) : null}
+        <div className="flex flex-col">
+          <span className="font-mono text-xs text-muted-foreground">
+            {slotLabel}
+            {filamentDesc ? ` · ${filamentDesc}` : ''}
+          </span>
+          <span className="font-mono">
+            {usage.usedG !== null
+              ? formatGrams(usage.usedG)
+              : usage.usedMm !== null
+                ? `${usage.usedMm} mm`
+                : '—'}
+            {usage.estimated ? <Badge className="ml-1">estimated</Badge> : null}
+          </span>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {usage.attributed ? (
           <Link
             to="/inventory/spools/$spoolId"
@@ -131,9 +170,27 @@ function UsageRow({ jobId, usage }: { jobId: string; usage: FilamentUsage }) {
             {usage.spoolLabel ?? 'spool'}
           </Link>
         ) : (
-          <Button size="sm" variant="outline" onClick={() => setAttrOpen(true)}>
-            <Link2 className="size-3" aria-hidden /> Attribute
-          </Button>
+          <>
+            {usage.suggestedSpoolId ? (
+              <Button
+                size="sm"
+                loading={attribute.isPending}
+                onClick={() => attributeTo(usage.suggestedSpoolId as string)}
+              >
+                <Link2 className="size-3" aria-hidden /> Use{' '}
+                {usage.suggestedSpoolLabel ?? 'mapped spool'}
+              </Button>
+            ) : null}
+            <Button size="sm" variant="outline" onClick={() => setAttrOpen(true)}>
+              {usage.suggestedSpoolId ? (
+                'Other…'
+              ) : (
+                <>
+                  <Link2 className="size-3" aria-hidden /> Attribute
+                </>
+              )}
+            </Button>
+          </>
         )}
       </div>
       {attrOpen ? (

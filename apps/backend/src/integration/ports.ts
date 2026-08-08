@@ -17,6 +17,15 @@ export interface PrinterDescriptor {
   model: string | null;
 }
 
+/** Per-slot filament usage reported by a Bambu task, normalized to internal slotRefs. */
+export interface TaskUsage {
+  /** `unit:slot` (0-3 AMS units, 254 external) or `"reported"` when only a total is known. */
+  slotRef: string;
+  filamentType?: string;
+  colorHex?: string;
+  weightG?: number;
+}
+
 export interface TaskRecord {
   bambuTaskId: string;
   printerSerial?: string;
@@ -25,6 +34,14 @@ export interface TaskRecord {
   endedAt?: number;
   durationMin?: number;
   outcome?: 'success' | 'failed' | 'cancelled' | 'unknown';
+  /** Signed cover image URL from Bambu (cached locally before display). */
+  coverUrl?: string;
+  /** Total filament weight (grams) reported for the task. */
+  totalWeightG?: number;
+  /** Total filament length (mm) reported for the task. */
+  totalLengthMm?: number;
+  /** Per-slot filament usage; empty when the task reports no filament detail. */
+  usages?: TaskUsage[];
 }
 
 /** Driven port: cloud REST gateway. */

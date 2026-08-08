@@ -15,6 +15,7 @@ import { CatalogService } from './inventory/catalog/service.js';
 import { LedgerWriter } from './inventory/ledger/ledger-write.js';
 import { SpoolService } from './inventory/spool/service.js';
 import { CostingService } from './jobs/costing/service.js';
+import { CoverCache } from './jobs/job/cover-cache.js';
 import { JobService } from './jobs/job/service.js';
 import { PartService } from './parts/service.js';
 import { InboundService } from './procurement/inbound/service.js';
@@ -46,6 +47,7 @@ export interface Container {
   reception: ReceptionService;
   costing: CostingService;
   jobs: JobService;
+  coverCache: CoverCache;
   workOrders: WorkOrderService;
   integration: IntegrationService;
   supervisor: TelemetrySupervisor;
@@ -74,6 +76,7 @@ export function buildContainer(config: AppConfig, db: Db): Container {
   const costing = new CostingService(db, bus);
   const parts = new PartService(db, costing);
   const jobs = new JobService(db, ledger, costing, ams, bus);
+  const coverCache = new CoverCache(db, config.coversDir, log);
   const workOrders = new WorkOrderService(db, parts, costing);
 
   const normalizer = new Normalizer((msg) => log.info(msg));
@@ -87,7 +90,7 @@ export function buildContainer(config: AppConfig, db: Db): Container {
     normalizer,
     mqttRegionOverride: config.mqttRegionOverride,
   });
-  const taskSync = new TaskSyncService(db, integration, jobs);
+  const taskSync = new TaskSyncService(db, integration, jobs, coverCache);
 
   // Alert evaluator subscribes to stock changes → emits low-stock SSE.
   bus.subscribe((e) => {
@@ -131,6 +134,7 @@ export function buildContainer(config: AppConfig, db: Db): Container {
     reception,
     costing,
     jobs,
+    coverCache,
     workOrders,
     integration,
     supervisor,

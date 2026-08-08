@@ -14,6 +14,7 @@ import type { Db } from '../../db/client.js';
 import { printer } from '../../db/schema/integration.js';
 import { spool, spoolLedgerEntry } from '../../db/schema/inventory.js';
 import { filamentUsage, printJob } from '../../db/schema/jobs.js';
+import type { TaskRecord } from '../../integration/ports.js';
 import type { AmsMappingService } from '../../inventory/ams-mapping/service.js';
 import type { LedgerWriter } from '../../inventory/ledger/ledger-write.js';
 import { toLedgerEntry } from '../../inventory/spool/service.js';
@@ -263,16 +264,10 @@ export class JobService {
   /**
    * Upsert a job from a normalized task record (FR-308/401). Idempotent by
    * bambu_task_id; telemetry-only completions merge on (printer, ±10min window).
+   * Also captures the cover image URL, total weight, and per-slot filament usages,
+   * backfilling existing jobs on re-sync (without disturbing confirmed attributions).
    */
-  upsertFromTask(task: {
-    bambuTaskId: string;
-    printerSerial?: string;
-    jobName?: string;
-    startedAt?: number;
-    endedAt?: number;
-    durationMin?: number;
-    outcome?: JobOutcome;
-  }): { jobId: string; created: boolean } {
+  upsertFromTask(task: TaskRecord): { jobId: string; created: boolean } {
     const existing = this.db
       .select()
       .from(printJob)
@@ -287,6 +282,14 @@ export class JobService {
           .where(eq(printer.serial, task.printerSerial))
           .get()?.id ?? null;
     }
+    // Only overwrite the cached-cover flag when a new/different URL arrives, so a
+    // re-sync doesn't force a re-download of an already-cached image.
+    const coverPatch = (currentUrl: string | null): Record<string, unknown> =>
+      task.coverUrl && task.coverUrl !== currentUrl
+        ? { coverUrl: task.coverUrl, coverCached: 0 }
+        : {};
+
+    let result: { jobId: string; created: boolean };
     if (existing) {
       this.db
         .update(printJob)
@@ -297,13 +300,29 @@ export class JobService {
           ...(task.durationMin != null ? { durationMin: task.durationMin } : {}),
           ...(task.outcome ? { outcome: task.outcome } : {}),
           ...(printerId ? { printerId } : {}),
+          ...(task.totalWeightG != null ? { totalWeightG: task.totalWeightG } : {}),
+          ...coverPatch(existing.coverUrl),
           updatedAt: nowMs(),
         })
         .where(eq(printJob.id, existing.id))
         .run();
-      return { jobId: existing.id, created: false };
+      result = { jobId: existing.id, created: false };
+    } else {
+      result = this.insertOrAdoptTask(task, printerId, coverPatch);
     }
 
+    const usagesChanged = this.reconcileTaskUsages(result.jobId, printerId, task.usages ?? []);
+    // Recalculate only when there's something new to cost — avoids inserting a fresh
+    // (superseded) cost snapshot on every no-op re-sync of unchanged history.
+    if (result.created || usagesChanged) this.costing.recalculate(result.jobId);
+    return result;
+  }
+
+  private insertOrAdoptTask(
+    task: TaskRecord,
+    printerId: string | null,
+    coverPatch: (currentUrl: string | null) => Record<string, unknown>,
+  ): { jobId: string; created: boolean } {
     // Try to adopt a recent telemetry-only job in the ±10min window.
     if (printerId && task.startedAt) {
       const windowMs = 10 * 60 * 1000;
@@ -326,6 +345,8 @@ export class JobService {
             bambuTaskId: task.bambuTaskId,
             jobName: task.jobName ?? candidate.jobName,
             outcome: task.outcome ?? candidate.outcome,
+            ...(task.totalWeightG != null ? { totalWeightG: task.totalWeightG } : {}),
+            ...coverPatch(candidate.coverUrl),
             updatedAt: nowMs(),
           })
           .where(eq(printJob.id, candidate.id))
@@ -349,11 +370,87 @@ export class JobService {
         durationMin: task.durationMin ?? null,
         outcome: task.outcome ?? 'unknown',
         usageStatus: 'reported',
+        totalWeightG: task.totalWeightG ?? null,
+        coverUrl: task.coverUrl ?? null,
+        coverCached: 0,
         createdAt: now,
         updatedAt: now,
       })
       .run();
     return { jobId: id, created: true };
+  }
+
+  /**
+   * Reconcile filament_usage rows against a task's reported per-slot usages
+   * (suggest-and-confirm model — never auto-posts the ledger). Keyed by (job,slot):
+   *  - attributed rows (with a live ledger entry) are left untouched;
+   *  - unattributed rows are updated with fresh grams/type/color;
+   *  - new slots are inserted unattributed;
+   *  - unattributed rows for slots no longer reported are removed (clears the stale
+   *    "reported" fallback once real per-slot detail arrives).
+   */
+  private reconcileTaskUsages(
+    jobId: string,
+    _printerId: string | null,
+    taskUsages: NonNullable<TaskRecord['usages']>,
+  ): boolean {
+    const desired = new Map(taskUsages.map((u) => [u.slotRef, u]));
+    const existingRows = this.db
+      .select()
+      .from(filamentUsage)
+      .where(eq(filamentUsage.jobId, jobId))
+      .all();
+    let changed = false;
+
+    for (const row of existingRows) {
+      // Preserve rows the user (or a prior sync) already attributed to a spool.
+      if (row.ledgerEntryId) {
+        desired.delete(row.slotRef);
+        continue;
+      }
+      // Only reconcile task-derived slots; leave manual usages (manual:N) alone.
+      if (!isTaskSlotRef(row.slotRef)) continue;
+      const want = desired.get(row.slotRef);
+      if (!want) {
+        this.db.delete(filamentUsage).where(eq(filamentUsage.id, row.id)).run();
+        changed = true;
+        continue;
+      }
+      const nextG = want.weightG ?? null;
+      const nextType = want.filamentType ?? null;
+      const nextColor = want.colorHex ?? null;
+      if (row.usedG !== nextG || row.trayType !== nextType || row.colorHex !== nextColor) {
+        this.db
+          .update(filamentUsage)
+          .set({ usedG: nextG, trayType: nextType, colorHex: nextColor })
+          .where(eq(filamentUsage.id, row.id))
+          .run();
+        changed = true;
+      }
+      desired.delete(row.slotRef);
+    }
+
+    // Insert brand-new slots (unattributed — the user confirms before any deduction).
+    for (const [slotRef, want] of desired) {
+      this.db
+        .insert(filamentUsage)
+        .values({
+          id: newId(),
+          jobId,
+          slotRef,
+          spoolId: null,
+          usedG: want.weightG ?? null,
+          usedMm: null,
+          trayType: want.filamentType ?? null,
+          colorHex: want.colorHex ?? null,
+          estimated: 0,
+          attributed: 0,
+          ledgerEntryId: null,
+        })
+        .run();
+      changed = true;
+    }
+    return changed;
   }
 
   private postOrPreview(args: {
@@ -390,6 +487,12 @@ export class JobService {
   }
 
   private usagesFor(jobId: string): FilamentUsage[] {
+    const job = this.db
+      .select({ printerId: printJob.printerId })
+      .from(printJob)
+      .where(eq(printJob.id, jobId))
+      .get();
+    const printerId = job?.printerId ?? null;
     return this.db
       .select()
       .from(filamentUsage)
@@ -400,6 +503,21 @@ export class JobService {
           ? (this.db.select({ label: spool.label }).from(spool).where(eq(spool.id, u.spoolId)).get()
               ?.label ?? null)
           : null;
+        // Live suggestion: the spool currently mapped to this slot on the job's
+        // printer, offered for one-click attribution while the usage is unattributed.
+        let suggestedSpoolId: string | null = null;
+        let suggestedSpoolLabel: string | null = null;
+        if (!u.ledgerEntryId && printerId) {
+          suggestedSpoolId = this._ams.spoolForSlot(printerId, u.slotRef);
+          if (suggestedSpoolId) {
+            suggestedSpoolLabel =
+              this.db
+                .select({ label: spool.label })
+                .from(spool)
+                .where(eq(spool.id, suggestedSpoolId))
+                .get()?.label ?? null;
+          }
+        }
         return {
           id: u.id,
           jobId: u.jobId,
@@ -408,6 +526,10 @@ export class JobService {
           spoolLabel: label,
           usedG: u.usedG,
           usedMm: u.usedMm,
+          trayType: u.trayType,
+          colorHex: u.colorHex,
+          suggestedSpoolId,
+          suggestedSpoolLabel,
           estimated: u.estimated === 1,
           attributed: u.attributed === 1,
           ledgerEntryId: u.ledgerEntryId,
@@ -439,12 +561,18 @@ export class JobService {
       outcome: r.outcome as JobOutcome,
       usageStatus: r.usageStatus as PrintJob['usageStatus'],
       totalUsedG,
+      coverUrl: r.coverCached === 1 ? `/api/jobs/${r.id}/cover` : null,
       cost: cost ? { totalCostMinor: cost.totalCostMinor, incomplete: cost.incomplete } : null,
       workOrderLineId: r.workOrderLineId,
       createdAt: new Date(r.createdAt).toISOString(),
       updatedAt: new Date(r.updatedAt).toISOString(),
     };
   }
+}
+
+/** A slotRef produced by task sync (AMS `unit:slot`, external `254:0`, or `reported`). */
+function isTaskSlotRef(slotRef: string): boolean {
+  return slotRef === 'reported' || /^(\d+):(\d+)$/.test(slotRef);
 }
 
 function csvEscape(s: string): string {

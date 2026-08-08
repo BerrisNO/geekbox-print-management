@@ -26,6 +26,12 @@ export const printJob = sqliteTable(
     durationMin: real('duration_min'),
     outcome: text('outcome').notNull().default('unknown'),
     usageStatus: text('usage_status').notNull().default('unknown'),
+    // Bambu task cover image (FR-401 ext): original signed URL + whether we've
+    // cached a local copy under {coversDir}/{jobId} (the CSP blocks external images).
+    coverUrl: text('cover_url'),
+    coverCached: integer('cover_cached').notNull().default(0),
+    // Bambu-reported total filament weight for the task (display fallback).
+    totalWeightG: real('total_weight_g'),
     // Fulfillment link to a work-order line (Stage 2); null when unassigned.
     workOrderLineId: text('work_order_line_id').references(() => workOrderLine.id),
     createdAt: integer('created_at').notNull(),
@@ -55,6 +61,10 @@ export const filamentUsage = sqliteTable(
     spoolId: text('spool_id').references(() => spool.id),
     usedG: real('used_g'),
     usedMm: real('used_mm'),
+    // Bambu-reported filament identity for this slot (shown before attribution,
+    // and used to sanity-check the suggested spool). Null for manual usages.
+    trayType: text('tray_type'),
+    colorHex: text('color_hex'),
     estimated: integer('estimated').notNull().default(0),
     attributed: integer('attributed').notNull().default(0),
     // References the LIVE consumption entry; repointed inside FR-405 corrections.

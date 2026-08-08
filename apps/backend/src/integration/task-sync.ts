@@ -2,6 +2,7 @@ import type { SyncResult, TelemetrySnapshot } from '@geekbox/shared';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { cloudLink, printer, telemetrySnapshot } from '../db/schema/integration.js';
+import type { CoverCache } from '../jobs/job/cover-cache.js';
 import type { JobService } from '../jobs/job/service.js';
 import { NotFoundError, UpstreamError } from '../shared/errors/index.js';
 import type { IntegrationService } from './linking/service.js';
@@ -17,6 +18,7 @@ export class TaskSyncService {
     private readonly db: Db,
     private readonly integration: IntegrationService,
     private readonly jobs: JobService,
+    private readonly covers: CoverCache,
   ) {}
 
   async sync(): Promise<SyncResult> {
@@ -42,6 +44,8 @@ export class TaskSyncService {
       else merged += 1;
     }
     this.db.update(cloudLink).set({ lastRestSuccessAt: Date.now() }).run();
+    // Cache any new cover images (best-effort, outside the write path).
+    await this.covers.cacheMissing().catch(() => undefined);
     return { fetched: tasks.length, created, merged };
   }
 

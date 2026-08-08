@@ -6,6 +6,7 @@ import {
 } from '@geekbox/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Container } from '../container.js';
+import { NotFoundError } from '../shared/errors/index.js';
 
 type JobFilter = {
   printerId?: string;
@@ -21,6 +22,15 @@ export function registerJobRoutes(app: FastifyInstance, c: Container): void {
     reply.status(201).send(c.jobs.createManual(manualJobInputSchema.parse(req.body))),
   );
   app.get('/api/jobs/:id', async (req) => c.jobs.get((req.params as { id: string }).id));
+  app.get('/api/jobs/:id/cover', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const cover = await c.coverCache.read(id);
+    if (!cover) throw new NotFoundError('Cover');
+    return reply
+      .type(cover.contentType)
+      .header('cache-control', 'private, max-age=86400')
+      .send(cover.buffer);
+  });
   app.patch('/api/jobs/:id', async (req) =>
     c.jobs.correct((req.params as { id: string }).id, jobCorrectionSchema.parse(req.body)),
   );

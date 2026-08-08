@@ -7,7 +7,7 @@ import {
   reportMessageSchema,
   tasksResponseSchema,
 } from './bambu/raw-schemas.js';
-import type { PrinterDescriptor, TaskRecord } from './ports.js';
+import type { PrinterDescriptor, TaskRecord, TaskUsage } from './ports.js';
 
 /**
  * The tolerant normalization boundary (NFR-MA-03, ES-303.1). Parses raw Bambu
@@ -66,6 +66,7 @@ export class Normalizer {
       .map((t) => {
         const started = t.startTime ? Date.parse(t.startTime) : undefined;
         const ended = t.endTime ? Date.parse(t.endTime) : undefined;
+        const usages = normalizeTaskUsages(t.amsDetailMapping, t.weight);
         return {
           bambuTaskId: String(t.id),
           printerSerial: t.deviceId ?? undefined,
@@ -74,6 +75,10 @@ export class Normalizer {
           endedAt: Number.isFinite(ended) ? ended : undefined,
           durationMin: t.costTime != null ? t.costTime / 60 : undefined,
           outcome: mapTaskStatus(t.status),
+          coverUrl: t.cover ?? undefined,
+          totalWeightG: t.weight ?? undefined,
+          totalLengthMm: t.length ?? undefined,
+          usages,
         };
       });
   }
@@ -154,6 +159,55 @@ function mapTaskStatus(status: string | number | null | undefined): TaskRecord['
   if (s === '3' || s === 'FAILED') return 'failed';
   if (s === 'CANCELLED' || s === 'CANCELED') return 'cancelled';
   return 'unknown';
+}
+
+/**
+ * Convert a Bambu task's amsDetailMapping into internal per-slot usages. Maps the
+ * global tray index → `unit:slot` slotRef. When no per-slot detail is present but a
+ * total weight is, emits a single `"reported"` fallback usage so the total still
+ * surfaces and stays attributable.
+ */
+function normalizeTaskUsages(
+  mapping:
+    | Array<{
+        ams?: number | null;
+        targetColor?: string | null;
+        filamentType?: string | null;
+        weight?: number | null;
+      }>
+    | null
+    | undefined,
+  totalWeightG: number | null | undefined,
+): TaskUsage[] {
+  const usages: TaskUsage[] = [];
+  for (const m of mapping ?? []) {
+    const slotRef = amsIndexToSlotRef(m.ams);
+    if (!slotRef) continue;
+    usages.push({
+      slotRef,
+      filamentType: m.filamentType ?? undefined,
+      colorHex: normalizeColor(m.targetColor) ?? undefined,
+      weightG: m.weight ?? undefined,
+    });
+  }
+  if (usages.length === 0 && totalWeightG != null && totalWeightG > 0) {
+    usages.push({ slotRef: 'reported', weightG: totalWeightG });
+  }
+  return usages;
+}
+
+/**
+ * Bambu global tray index → app slotRef. 254 = external holder ("254:0"); otherwise
+ * unit = floor(index/4), slot = index%4. Returns null for indices outside the
+ * modeled range (units 0-3, slots 0-3), which the reconciler then skips.
+ */
+function amsIndexToSlotRef(ams: number | null | undefined): string | null {
+  if (ams == null || !Number.isFinite(ams)) return null;
+  if (ams === 254) return '254:0';
+  if (ams < 0 || ams > 15) return null;
+  const unit = Math.floor(ams / 4);
+  const slot = ams % 4;
+  return `${unit}:${slot}`;
 }
 
 /** Bambu tray colors are hex with alpha (e.g. "RRGGBBAA"). Reduce to #RRGGBB. */
