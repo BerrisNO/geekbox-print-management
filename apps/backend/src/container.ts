@@ -92,6 +92,12 @@ export function buildContainer(config: AppConfig, db: Db): Container {
   });
   const taskSync = new TaskSyncService(db, integration, jobs, coverCache);
 
+  // A finished print (telemetry) triggers a prompt task-sync burst so the job
+  // lands in the list right away instead of waiting for the 30-min scheduler.
+  bus.subscribe((e) => {
+    if (e.type === 'PrintFinishedObserved') taskSync.scheduleFinishSyncs();
+  });
+
   // Alert evaluator subscribes to stock changes → emits low-stock SSE.
   bus.subscribe((e) => {
     if (e.type === 'SpoolsReceivedIntoStock' || e.type === 'FilamentConsumptionRecorded') {

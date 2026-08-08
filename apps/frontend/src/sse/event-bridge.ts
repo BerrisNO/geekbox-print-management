@@ -92,7 +92,7 @@ export function startEventBridge(qc: QueryClient): EventBridge {
       disablePolling();
     };
 
-    source.onmessage = (ev) => {
+    const onFrame = (ev: MessageEvent) => {
       try {
         const msg = JSON.parse(ev.data) as SseMessage;
         dispatch(msg);
@@ -100,6 +100,20 @@ export function startEventBridge(qc: QueryClient): EventBridge {
         // Malformed frame — ignore (drift is handled server-side).
       }
     };
+    // The server tags frames with `event: <type>`, and NAMED events do not fire
+    // onmessage — they require per-type listeners (this was why live updates
+    // never arrived). onmessage stays as a fallback for untagged frames.
+    const eventTypes: SseMessage['type'][] = [
+      'telemetry',
+      'integrationStatus',
+      'lowStock',
+      'mappingVerify',
+      'jobUpdate',
+    ];
+    for (const type of eventTypes) {
+      source.addEventListener(type, onFrame);
+    }
+    source.onmessage = onFrame;
 
     source.onerror = () => {
       consecutiveFailures += 1;

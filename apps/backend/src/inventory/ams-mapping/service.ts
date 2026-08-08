@@ -240,6 +240,26 @@ export class AmsMappingService {
     return this.getSlotView(printerId, slotRef);
   }
 
+  /**
+   * All slot mappings on a printer with slotRef + creation time. Jobs use this for
+   * auto-attribution (a mapping only counts for jobs that started after it existed)
+   * and for resolving the "reported" fallback slot to a sole mapped spool.
+   */
+  mappingsForPrinter(
+    printerId: string,
+  ): Array<{ slotRef: string; spoolId: string; mappedAt: number }> {
+    return this.db
+      .select()
+      .from(amsSlotMapping)
+      .where(eq(amsSlotMapping.printerId, printerId))
+      .all()
+      .map((m) => ({
+        slotRef: `${m.unitIndex}:${m.slotIndex}`,
+        spoolId: m.spoolId,
+        mappedAt: m.mappedAt,
+      }));
+  }
+
   /** Resolve the spool mapped to a printer's external holder (consumption attribution). */
   spoolForSlot(printerId: string, slotRef: string): string | null {
     const parsed = parseSlotRef(slotRef);

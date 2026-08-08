@@ -13,7 +13,14 @@ import { Button, buttonVariants } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { EmptyState } from '../components/ui/misc';
 import { Select } from '../components/ui/select';
-import { formatDateTime, formatGrams, formatMoney, formatPct, orDash } from '../lib/format';
+import {
+  formatDateTime,
+  formatDuration,
+  formatGrams,
+  formatLength,
+  formatMoney,
+  formatPct,
+} from '../lib/format';
 
 const routeApi = getRouteApi('/_app/jobs');
 
@@ -35,27 +42,39 @@ export function JobsPage() {
               src={url}
               alt=""
               loading="lazy"
-              className="size-10 rounded-md border border-border object-cover"
+              className="size-12 rounded-md border border-border object-cover"
             />
           ) : (
-            <div className="size-10 rounded-md border border-dashed border-border bg-muted/40" />
+            <div className="size-12 rounded-md border border-dashed border-border bg-muted/40" />
           );
         },
       },
       {
         accessorKey: 'jobName',
         header: 'Job',
-        cell: (c) => <span className="font-medium">{c.getValue<string>()}</span>,
-      },
-      {
-        accessorKey: 'printerName',
-        header: 'Printer',
-        cell: (c) => orDash(c.getValue<string | null>()),
+        cell: (c) => (
+          <div className="flex flex-col">
+            <span className="font-medium">{c.getValue<string>() || 'Untitled'}</span>
+            <span className="text-xs text-muted-foreground">
+              {c.row.original.printerName ?? '—'}
+            </span>
+          </div>
+        ),
       },
       {
         accessorKey: 'endedAt',
-        header: 'Ended',
-        cell: (c) => formatDateTime(c.getValue<string | null>()),
+        header: 'Printed',
+        cell: (c) => {
+          const j = c.row.original;
+          return (
+            <div className="flex flex-col">
+              <span>{formatDateTime(j.endedAt ?? j.startedAt)}</span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {formatDuration(j.durationMin)}
+              </span>
+            </div>
+          );
+        },
       },
       {
         accessorKey: 'outcome',
@@ -63,9 +82,49 @@ export function JobsPage() {
         cell: (c) => <JobOutcomePill outcome={c.row.original.outcome} />,
       },
       {
-        accessorKey: 'totalUsedG',
+        id: 'filament',
         header: 'Filament',
-        cell: (c) => <span className="font-mono">{formatGrams(c.getValue<number>())}</span>,
+        accessorFn: (r) => r.totalUsedG,
+        cell: (c) => {
+          const j = c.row.original;
+          const chips = j.usageSummary.filter((u) => (u.usedG ?? 0) > 0);
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span className="flex items-center gap-1">
+                {chips.map((u, i) => (
+                  <span
+                    // biome-ignore lint/suspicious/noArrayIndexKey: static per-render summary
+                    key={i}
+                    className="inline-block size-3.5 rounded-full border border-border"
+                    style={{ backgroundColor: u.colorHex ?? 'transparent' }}
+                    title={`${u.trayType ?? '?'} ${formatGrams(u.usedG)}`}
+                  />
+                ))}
+                <span className="ml-1 font-mono">{formatGrams(j.totalUsedG)}</span>
+              </span>
+              {j.totalLengthMm != null ? (
+                <span className="font-mono text-xs text-muted-foreground">
+                  {formatLength(j.totalLengthMm)}
+                </span>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'linked',
+        header: 'Spools',
+        accessorFn: (r) => r.unattributedCount,
+        cell: (c) => {
+          const j = c.row.original;
+          const withWeight = j.usageSummary.filter((u) => (u.usedG ?? 0) > 0);
+          if (withWeight.length === 0)
+            return <span className="text-xs text-muted-foreground">—</span>;
+          if (j.unattributedCount > 0) {
+            return <Badge variant="warning">{j.unattributedCount} unlinked</Badge>;
+          }
+          return <Badge variant="success">linked</Badge>;
+        },
       },
       {
         id: 'cost',
@@ -96,7 +155,7 @@ export function JobsPage() {
     <>
       <PageHeader
         title="Print jobs"
-        description="History, filters, and cost summary."
+        description="History, filament linking, and cost summary."
         actions={
           <>
             <Button variant="outline" loading={sync.isPending} onClick={() => sync.mutate()}>

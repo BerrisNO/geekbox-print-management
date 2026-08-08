@@ -463,6 +463,8 @@ export interface FilamentUsage {
   trayType: string | null;
   /** Bambu-reported loaded color as #RRGGBB, null when unknown. */
   colorHex: string | null;
+  /** Bambu filament catalog code (e.g. "GFA00"), null when unknown. */
+  filamentId: string | null;
   /** Spool currently mapped to this slot's printer (live suggestion), when unattributed. */
   suggestedSpoolId: string | null;
   suggestedSpoolLabel: string | null;
@@ -511,8 +513,25 @@ export interface PrintJob {
   outcome: JobOutcome;
   usageStatus: UsageStatus;
   totalUsedG: number;
+  /** Bambu-reported total filament weight (g) for the task, null when unknown. */
+  totalWeightG: number | null;
+  /** Bambu-reported total filament length (mm) for the task, null when unknown. */
+  totalLengthMm: number | null;
+  /** Build plate type reported by Bambu (e.g. "textured_plate"), null when unknown. */
+  bedType: string | null;
+  /** Plate number within the sliced project, null when unknown. */
+  plateIndex: number | null;
   /** App-relative cover image URL (/api/jobs/{id}/cover) when cached, else null. */
   coverUrl: string | null;
+  /** Per-slot filament summary for list rendering (color chips + link state). */
+  usageSummary: Array<{
+    trayType: string | null;
+    colorHex: string | null;
+    usedG: number | null;
+    attributed: boolean;
+  }>;
+  /** Count of usages with weight that still lack a confirmed spool link. */
+  unattributedCount: number;
   cost: { totalCostMinor: number; incomplete: boolean } | null;
   /** The work-order line this job fulfills, or null when unassigned. */
   workOrderLineId: string | null;

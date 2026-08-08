@@ -52,7 +52,9 @@ export type DomainEvent =
       detail: string;
       nextRetryAt: string | null;
     }
-  | { type: 'PrintJobObserved'; jobId: string; kind: 'created' | 'merged' };
+  | { type: 'PrintJobObserved'; jobId: string; kind: 'created' | 'merged' }
+  /** Telemetry saw a print leave the printing state (finish/fail/cancel). */
+  | { type: 'PrintFinishedObserved'; printerId: string };
 
 export type EventType = DomainEvent['type'];
 type Handler = (event: DomainEvent) => void;

@@ -14,6 +14,8 @@
       "cover": "https://public.bambulab.com/covers/900000001.png",
       "weight": 24.5,
       "length": 8123.4,
+      "bedType": "textured_plate",
+      "plateIndex": 1,
       "amsDetailMapping": [
         {
           "ams": 1,

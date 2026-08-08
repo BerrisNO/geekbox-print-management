@@ -64,6 +64,8 @@ export const taskSchema = z
     cover: z.string().nullish(), // signed image URL
     weight: z.number().nullish(), // total grams
     length: z.number().nullish(), // total mm
+    bedType: z.string().nullish(), // e.g. "textured_plate"
+    plateIndex: z.number().nullish(),
     amsDetailMapping: z.array(amsDetailSchema).nullish(),
   })
   .passthrough();

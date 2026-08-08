@@ -44,15 +44,29 @@ describe('Normalizer — Bambu ACL boundary (MS-1 fixtures)', () => {
     expect(benchy!.coverUrl).toBe('https://public.bambulab.com/covers/900000001.png');
     expect(benchy!.totalWeightG).toBe(24.5);
     expect(benchy!.totalLengthMm).toBeCloseTo(8123.4, 5);
+    expect(benchy!.bedType).toBe('textured_plate');
+    expect(benchy!.plateIndex).toBe(1);
     // amsDetailMapping → internal slotRefs (ams 1 → "0:1", external 254 → "254:0").
     expect(benchy!.usages).toEqual([
-      { slotRef: '0:1', filamentType: 'PLA', colorHex: '#FF0000', weightG: 20 },
-      { slotRef: '254:0', filamentType: 'PETG', colorHex: '#00FF00', weightG: 4.5 },
+      {
+        slotRef: '0:1',
+        filamentType: 'PLA',
+        colorHex: '#FF0000',
+        weightG: 20,
+        filamentId: 'GFA00',
+      },
+      {
+        slotRef: '254:0',
+        filamentType: 'PETG',
+        colorHex: '#00FF00',
+        weightG: 4.5,
+        filamentId: 'GFA01',
+      },
     ]);
 
     // No per-slot detail but a reported total → a single "reported" fallback usage.
     expect(bracket!.coverUrl).toBeUndefined();
-    expect(bracket!.usages).toEqual([{ slotRef: 'reported', weightG: 12 }]);
+    expect(bracket!.usages).toEqual([{ slotRef: 'reported', weightG: 12, filamentId: undefined }]);
   });
 
   it('normalizes a printing report into an internal telemetry snapshot', () => {

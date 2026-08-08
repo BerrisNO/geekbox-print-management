@@ -301,6 +301,9 @@ export class JobService {
           ...(task.outcome ? { outcome: task.outcome } : {}),
           ...(printerId ? { printerId } : {}),
           ...(task.totalWeightG != null ? { totalWeightG: task.totalWeightG } : {}),
+          ...(task.totalLengthMm != null ? { totalLengthMm: task.totalLengthMm } : {}),
+          ...(task.bedType ? { bedType: task.bedType } : {}),
+          ...(task.plateIndex != null ? { plateIndex: task.plateIndex } : {}),
           ...coverPatch(existing.coverUrl),
           updatedAt: nowMs(),
         })
@@ -312,10 +315,74 @@ export class JobService {
     }
 
     const usagesChanged = this.reconcileTaskUsages(result.jobId, printerId, task.usages ?? []);
-    // Recalculate only when there's something new to cost — avoids inserting a fresh
-    // (superseded) cost snapshot on every no-op re-sync of unchanged history.
-    if (result.created || usagesChanged) this.costing.recalculate(result.jobId);
+    // Auto-attribute usages whose slot had a spool mapped BEFORE the job started —
+    // that spool was the one loaded, so the deduction is safe to post automatically.
+    // Older jobs (pre-mapping) are left unattributed with a suggestion instead.
+    const autoPosted = this.autoAttributeTaskUsages(
+      result.jobId,
+      printerId,
+      task.startedAt ?? task.endedAt ?? null,
+    );
+    // Recalculate + notify only when there's something new — avoids a fresh
+    // (superseded) cost snapshot and an SSE storm on every no-op re-sync.
+    if (result.created || usagesChanged || autoPosted) {
+      this.costing.recalculate(result.jobId);
+      this.bus.publish({
+        type: 'PrintJobObserved',
+        jobId: result.jobId,
+        kind: result.created ? 'created' : 'merged',
+      });
+    }
     return result;
+  }
+
+  /**
+   * Resolve the spool a task slot should map to: exact slotRef match, or — for the
+   * "reported" fallback (no per-slot detail from Bambu) — the printer's single
+   * mapping when exactly one exists (single-spool printers without an AMS).
+   */
+  private resolveMapping(
+    printerId: string,
+    slotRef: string,
+  ): { spoolId: string; mappedAt: number } | null {
+    const mappings = this._ams.mappingsForPrinter(printerId);
+    if (slotRef === 'reported') {
+      return mappings.length === 1 ? (mappings[0] ?? null) : null;
+    }
+    return mappings.find((m) => m.slotRef === slotRef) ?? null;
+  }
+
+  /**
+   * Post consumption for unattributed task usages whose slot mapping predates the
+   * job start (mappedAt <= startedAt). Idempotent per usage via ledger_entry_id.
+   * Returns true when at least one deduction was posted.
+   */
+  private autoAttributeTaskUsages(
+    jobId: string,
+    printerId: string | null,
+    jobStartMs: number | null,
+  ): boolean {
+    if (!printerId || jobStartMs == null) return false;
+    const rows = this.db.select().from(filamentUsage).where(eq(filamentUsage.jobId, jobId)).all();
+    let posted = false;
+    for (const row of rows) {
+      if (row.ledgerEntryId) continue;
+      if (!isTaskSlotRef(row.slotRef)) continue;
+      const grams = row.usedG ?? 0;
+      if (grams <= 0) continue;
+      const mapping = this.resolveMapping(printerId, row.slotRef);
+      if (!mapping || mapping.mappedAt > jobStartMs) continue;
+      this.postOrPreview({
+        usageId: row.id,
+        spoolId: mapping.spoolId,
+        jobId,
+        slotRef: row.slotRef,
+        grams,
+        estimated: false,
+      });
+      posted = true;
+    }
+    return posted;
   }
 
   private insertOrAdoptTask(
@@ -346,6 +413,9 @@ export class JobService {
             jobName: task.jobName ?? candidate.jobName,
             outcome: task.outcome ?? candidate.outcome,
             ...(task.totalWeightG != null ? { totalWeightG: task.totalWeightG } : {}),
+            ...(task.totalLengthMm != null ? { totalLengthMm: task.totalLengthMm } : {}),
+            ...(task.bedType ? { bedType: task.bedType } : {}),
+            ...(task.plateIndex != null ? { plateIndex: task.plateIndex } : {}),
             ...coverPatch(candidate.coverUrl),
             updatedAt: nowMs(),
           })
@@ -371,6 +441,9 @@ export class JobService {
         outcome: task.outcome ?? 'unknown',
         usageStatus: 'reported',
         totalWeightG: task.totalWeightG ?? null,
+        totalLengthMm: task.totalLengthMm ?? null,
+        bedType: task.bedType ?? null,
+        plateIndex: task.plateIndex ?? null,
         coverUrl: task.coverUrl ?? null,
         coverCached: 0,
         createdAt: now,
@@ -419,10 +492,21 @@ export class JobService {
       const nextG = want.weightG ?? null;
       const nextType = want.filamentType ?? null;
       const nextColor = want.colorHex ?? null;
-      if (row.usedG !== nextG || row.trayType !== nextType || row.colorHex !== nextColor) {
+      const nextFilamentId = want.filamentId ?? null;
+      if (
+        row.usedG !== nextG ||
+        row.trayType !== nextType ||
+        row.colorHex !== nextColor ||
+        row.filamentId !== nextFilamentId
+      ) {
         this.db
           .update(filamentUsage)
-          .set({ usedG: nextG, trayType: nextType, colorHex: nextColor })
+          .set({
+            usedG: nextG,
+            trayType: nextType,
+            colorHex: nextColor,
+            filamentId: nextFilamentId,
+          })
           .where(eq(filamentUsage.id, row.id))
           .run();
         changed = true;
@@ -443,6 +527,7 @@ export class JobService {
           usedMm: null,
           trayType: want.filamentType ?? null,
           colorHex: want.colorHex ?? null,
+          filamentId: want.filamentId ?? null,
           estimated: 0,
           attributed: 0,
           ledgerEntryId: null,
@@ -508,7 +593,7 @@ export class JobService {
         let suggestedSpoolId: string | null = null;
         let suggestedSpoolLabel: string | null = null;
         if (!u.ledgerEntryId && printerId) {
-          suggestedSpoolId = this._ams.spoolForSlot(printerId, u.slotRef);
+          suggestedSpoolId = this.resolveMapping(printerId, u.slotRef)?.spoolId ?? null;
           if (suggestedSpoolId) {
             suggestedSpoolLabel =
               this.db
@@ -528,6 +613,7 @@ export class JobService {
           usedMm: u.usedMm,
           trayType: u.trayType,
           colorHex: u.colorHex,
+          filamentId: u.filamentId,
           suggestedSpoolId,
           suggestedSpoolLabel,
           estimated: u.estimated === 1,
@@ -561,7 +647,18 @@ export class JobService {
       outcome: r.outcome as JobOutcome,
       usageStatus: r.usageStatus as PrintJob['usageStatus'],
       totalUsedG,
+      totalWeightG: r.totalWeightG,
+      totalLengthMm: r.totalLengthMm,
+      bedType: r.bedType,
+      plateIndex: r.plateIndex,
       coverUrl: r.coverCached === 1 ? `/api/jobs/${r.id}/cover` : null,
+      usageSummary: usages.map((u) => ({
+        trayType: u.trayType,
+        colorHex: u.colorHex,
+        usedG: u.usedG,
+        attributed: u.ledgerEntryId != null,
+      })),
+      unattributedCount: usages.filter((u) => u.ledgerEntryId == null && (u.usedG ?? 0) > 0).length,
       cost: cost ? { totalCostMinor: cost.totalCostMinor, incomplete: cost.incomplete } : null,
       workOrderLineId: r.workOrderLineId,
       createdAt: new Date(r.createdAt).toISOString(),

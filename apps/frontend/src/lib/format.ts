@@ -51,6 +51,13 @@ export function formatGrams(g: number | null | undefined, decimals = 1): string 
   return `${g.toFixed(decimals)} g`;
 }
 
+/** Millimetres of filament → "8.1 m" (or "540 mm" under a metre). */
+export function formatLength(mm: number | null | undefined): string {
+  if (mm === null || mm === undefined) return '—';
+  if (mm < 1000) return `${Math.round(mm)} mm`;
+  return `${(mm / 1000).toFixed(1)} m`;
+}
+
 /** Format a 0–100 percentage. */
 export function formatPct(pct: number | null | undefined, decimals = 0): string {
   if (pct === null || pct === undefined) return '—';

@@ -13,6 +13,7 @@ import type { IntegrationService } from './linking/service.js';
  */
 export class TaskSyncService {
   private timer: ReturnType<typeof setInterval> | null = null;
+  private finishTimers: Array<ReturnType<typeof setTimeout>> = [];
 
   constructor(
     private readonly db: Db,
@@ -64,6 +65,22 @@ export class TaskSyncService {
   stopScheduler(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    for (const t of this.finishTimers) clearTimeout(t);
+    this.finishTimers = [];
+  }
+
+  /**
+   * A print just finished (telemetry transition). Sync promptly with staggered
+   * retries — the Bambu cloud can lag a minute or two before the finished task
+   * shows up in /my/tasks. Replaces any pending finish burst (idempotent syncs).
+   */
+  scheduleFinishSyncs(delaysMs: number[] = [20_000, 2 * 60_000, 8 * 60_000]): void {
+    for (const t of this.finishTimers) clearTimeout(t);
+    this.finishTimers = delaysMs.map((delay) =>
+      setTimeout(() => {
+        void this.sync().catch(() => undefined);
+      }, delay),
+    );
   }
 
   getSnapshot(printerId: string): TelemetrySnapshot {

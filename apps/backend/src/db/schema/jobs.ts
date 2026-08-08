@@ -30,8 +30,11 @@ export const printJob = sqliteTable(
     // cached a local copy under {coversDir}/{jobId} (the CSP blocks external images).
     coverUrl: text('cover_url'),
     coverCached: integer('cover_cached').notNull().default(0),
-    // Bambu-reported total filament weight for the task (display fallback).
+    // Bambu-reported task detail (display; null when the cloud omits it).
     totalWeightG: real('total_weight_g'),
+    totalLengthMm: real('total_length_mm'),
+    bedType: text('bed_type'),
+    plateIndex: integer('plate_index'),
     // Fulfillment link to a work-order line (Stage 2); null when unassigned.
     workOrderLineId: text('work_order_line_id').references(() => workOrderLine.id),
     createdAt: integer('created_at').notNull(),
@@ -65,6 +68,8 @@ export const filamentUsage = sqliteTable(
     // and used to sanity-check the suggested spool). Null for manual usages.
     trayType: text('tray_type'),
     colorHex: text('color_hex'),
+    // Bambu filament catalog code (e.g. "GFA00" = Bambu PLA Basic).
+    filamentId: text('filament_id'),
     estimated: integer('estimated').notNull().default(0),
     attributed: integer('attributed').notNull().default(0),
     // References the LIVE consumption entry; repointed inside FR-405 corrections.

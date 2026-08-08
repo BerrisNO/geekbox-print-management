@@ -24,6 +24,8 @@ export interface TaskUsage {
   filamentType?: string;
   colorHex?: string;
   weightG?: number;
+  /** Bambu filament catalog code, e.g. "GFA00". */
+  filamentId?: string;
 }
 
 export interface TaskRecord {
@@ -40,6 +42,10 @@ export interface TaskRecord {
   totalWeightG?: number;
   /** Total filament length (mm) reported for the task. */
   totalLengthMm?: number;
+  /** Build plate type reported for the task (e.g. "textured_plate"). */
+  bedType?: string;
+  /** Plate number within the sliced project. */
+  plateIndex?: number;
   /** Per-slot filament usage; empty when the task reports no filament detail. */
   usages?: TaskUsage[];
 }

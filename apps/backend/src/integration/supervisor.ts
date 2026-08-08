@@ -205,6 +205,19 @@ export class TelemetrySupervisor {
       printerId: p.id,
       snapshot: { ...merged, printerId: p.id },
     });
+
+    // Print-finished detection: the printer left 'printing' (FINISH→idle, FAILED→
+    // error, cancel→idle). Publishing lets task sync run promptly instead of the
+    // job waiting for the 30-min scheduler (the "last job missing" gap).
+    const prevState = existing?.printerState as TelemetrySnapshot['printerState'] | undefined;
+    if (
+      prevState === 'printing' &&
+      merged.printerState !== 'printing' &&
+      merged.printerState !== 'paused' &&
+      merged.printerState !== 'unknown'
+    ) {
+      this.bus.publish({ type: 'PrintFinishedObserved', printerId: p.id });
+    }
   }
 
   private verifyMappings(printerId: string, ams: TelemetrySnapshot['ams']): void {

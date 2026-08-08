@@ -78,6 +78,8 @@ export class Normalizer {
           coverUrl: t.cover ?? undefined,
           totalWeightG: t.weight ?? undefined,
           totalLengthMm: t.length ?? undefined,
+          bedType: t.bedType ?? undefined,
+          plateIndex: t.plateIndex ?? undefined,
           usages,
         };
       });
@@ -173,6 +175,7 @@ function normalizeTaskUsages(
         ams?: number | null;
         targetColor?: string | null;
         filamentType?: string | null;
+        filamentId?: string | null;
         weight?: number | null;
       }>
     | null
@@ -188,6 +191,7 @@ function normalizeTaskUsages(
       filamentType: m.filamentType ?? undefined,
       colorHex: normalizeColor(m.targetColor) ?? undefined,
       weightG: m.weight ?? undefined,
+      filamentId: m.filamentId ?? undefined,
     });
   }
   if (usages.length === 0 && totalWeightG != null && totalWeightG > 0) {

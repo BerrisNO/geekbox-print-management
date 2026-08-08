@@ -2,6 +2,8 @@ import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { EventBus } from '../../src/bus/event-bus.js';
 import type { Db } from '../../src/db/client.js';
+import { printer } from '../../src/db/schema/integration.js';
+import { spool as spoolTable } from '../../src/db/schema/inventory.js';
 import { filamentUsage, printJob } from '../../src/db/schema/jobs.js';
 import type { TaskRecord } from '../../src/integration/ports.js';
 import { AmsMappingService } from '../../src/inventory/ams-mapping/service.js';
@@ -13,14 +15,15 @@ import { JobService } from '../../src/jobs/job/service.js';
 import { makeTestDb } from './_setup.js';
 
 /**
- * upsertFromTask: cover + per-slot filament capture and idempotent backfill
- * (suggest-and-confirm — never auto-posts the ledger).
+ * upsertFromTask: cover + per-slot filament capture, idempotent backfill, and
+ * auto-attribution when the slot mapping predates the job start.
  */
 describe('JobService.upsertFromTask — cover + filament usages', () => {
   let db: Db;
   let jobs: JobService;
   let spools: SpoolService;
   let catalog: CatalogService;
+  let ams: AmsMappingService;
 
   beforeEach(() => {
     db = makeTestDb();
@@ -28,10 +31,23 @@ describe('JobService.upsertFromTask — cover + filament usages', () => {
     const ledger = new LedgerWriter(db);
     catalog = new CatalogService(db);
     spools = new SpoolService(db, ledger);
-    const ams = new AmsMappingService(db);
+    ams = new AmsMappingService(db);
     const costing = new CostingService(db, bus);
     jobs = new JobService(db, ledger, costing, ams, bus);
   });
+
+  function makeSpool() {
+    const vendor = catalog.createVendor({ name: 'Acme' });
+    const product = catalog.createProduct({
+      material: 'PLA',
+      spoolType: 'plastic',
+      colorName: 'Red',
+      vendorId: vendor.id,
+      diameterMm: 1.75,
+      nominalNetWeightG: 1000,
+    });
+    return spools.register({ productId: product.id, initialNetWeightG: 1000 });
+  }
 
   function baseTask(): TaskRecord {
     return {
@@ -73,16 +89,7 @@ describe('JobService.upsertFromTask — cover + filament usages', () => {
     const pla = usages.find((u) => u.slotRef === '0:1')!;
 
     // Confirm attribution of the 0:1 usage to a real spool (posts the ledger).
-    const vendor = catalog.createVendor({ name: 'Acme' });
-    const product = catalog.createProduct({
-      material: 'PLA',
-      spoolType: 'plastic',
-      colorName: 'Red',
-      vendorId: vendor.id,
-      diameterMm: 1.75,
-      nominalNetWeightG: 1000,
-    });
-    const spool = spools.register({ productId: product.id, initialNetWeightG: 1000 });
+    const spool = makeSpool();
     jobs.attribute(jobId, pla.id, spool.id);
     const attributed = db.select().from(filamentUsage).where(eq(filamentUsage.id, pla.id)).get()!;
     expect(attributed.ledgerEntryId).not.toBeNull();
@@ -130,5 +137,55 @@ describe('JobService.upsertFromTask — cover + filament usages', () => {
     });
     usages = db.select().from(filamentUsage).where(eq(filamentUsage.jobId, jobId)).all();
     expect(usages.map((u) => u.slotRef)).toEqual(['0:0']);
+  });
+
+  it('auto-attributes only jobs that started after the slot mapping existed', () => {
+    db.insert(printer)
+      .values({ id: 'prn1', serial: 'SER1', name: 'X1C', registration: 'manual' })
+      .run();
+    const spool = makeSpool();
+    ams.mapSlot('prn1', '0:1', spool.id);
+    const now = Date.now();
+
+    // New job (started after mapping) → deduction posted automatically.
+    const { jobId } = jobs.upsertFromTask({
+      bambuTaskId: 'T-auto',
+      printerSerial: 'SER1',
+      jobName: 'auto',
+      outcome: 'success',
+      startedAt: now + 60_000,
+      usages: [{ slotRef: '0:1', filamentType: 'PLA', weightG: 50 }],
+    });
+    const auto = db.select().from(filamentUsage).where(eq(filamentUsage.jobId, jobId)).get()!;
+    expect(auto.spoolId).toBe(spool.id);
+    expect(auto.ledgerEntryId).not.toBeNull();
+    expect(
+      db.select().from(spoolTable).where(eq(spoolTable.id, spool.id)).get()!.remainingNetWeightG,
+    ).toBe(950);
+
+    // Historic job (started before mapping) → left unattributed with no deduction.
+    const { jobId: oldJobId } = jobs.upsertFromTask({
+      bambuTaskId: 'T-old',
+      printerSerial: 'SER1',
+      jobName: 'old',
+      outcome: 'success',
+      startedAt: now - 24 * 60 * 60 * 1000,
+      usages: [{ slotRef: '0:1', filamentType: 'PLA', weightG: 30 }],
+    });
+    const old = db.select().from(filamentUsage).where(eq(filamentUsage.jobId, oldJobId)).get()!;
+    expect(old.ledgerEntryId).toBeNull();
+
+    // "reported" fallback resolves to the printer's sole mapping and auto-posts too.
+    const { jobId: repJobId } = jobs.upsertFromTask({
+      bambuTaskId: 'T-rep',
+      printerSerial: 'SER1',
+      jobName: 'rep',
+      outcome: 'success',
+      startedAt: now + 120_000,
+      usages: [{ slotRef: 'reported', weightG: 10 }],
+    });
+    const rep = db.select().from(filamentUsage).where(eq(filamentUsage.jobId, repJobId)).get()!;
+    expect(rep.spoolId).toBe(spool.id);
+    expect(rep.ledgerEntryId).not.toBeNull();
   });
 });
